@@ -12,7 +12,7 @@ bcnode_gpu_docker_pid="/var/run/bcnode_gpu_miner.pid"
 action=$1
 
 if [[ "$action" != "clean" ]] && [[ "$action" != "start" ]] &&  [[ "$action" != "build_image" ]]; then
-    echo -e "${RED}Invalid action. Has to be ./cli.sh <start|clean> NC}"
+    echo -e "${RED}Invalid action. Has to be ./cli.sh <start|clean|build_image> NC}"
     exit 1
 fi
 
@@ -43,7 +43,7 @@ elif [[ "$action" == "build_image" ]]; then
 else
     cd bcnode_gpu_docker
     echo
-    echo -e "${RED}Make sure to manually run './cli.sh cleanup' before starting this script!${NC}"
+    echo -e "${RED}Make sure to manually run './cli.sh clean' before starting this script!${NC}"
     echo
 
     export CUDA_HOME=/usr/local/cuda
