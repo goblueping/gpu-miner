@@ -7,7 +7,8 @@ YELLOW='\033[0;33m'
 
 bcnode_image="local/bcnode:latest"
 bcnode_container_name="bcnode"
-bcnode_gpu_docker_pid="/var/run/bcnode_gpu_miner.pid"
+bcnode_gpu_miner_pid="/var/run/bcnode_gpu_miner.pid"
+bcnode_gpu_miner_out="/tmp/bcnode_gpu_miner.out"
 
 action=$1
 
@@ -21,9 +22,9 @@ set -e pipefail
 if [[ "$action" == "clean" ]]; then
     echo -e "${GREEN}Killing containers if running, cleaning up...${NC}"
     docker rm -f ${bcnode_container_name}
-    if [[ -f "$bcnode_gpu_docker_pid" ]]; then
-        pid=`cat $bcnode_gpu_docker_pid`
-        echo -e "${GREEN}Killing bcnode_gpu_docker_pid $pid...${NC}"
+    if [[ -f "$bcnode_gpu_miner_pid " ]]; then
+        pid=`cat $bcnode_gpu_miner_pid`
+        echo -e "${GREEN}Killing bcnode_gpu_miner with pid: $pid...${NC}"
         kill -15 $pid
     fi
 elif [[ "$action" == "build_image" ]]; then
@@ -90,8 +91,10 @@ else
            start --rovers --rpc --ws --ui --node --scookie "${BC_SCOOKIE}" 2>&1
 
     cd ..
-    nohup ./releases/bcnode_gpu_miner &> /tmp/miner.out &
-    echo $! > /var/run/bcnode_gpu_miner.pid
+    nohup ./releases/bcnode_gpu_miner &> ${bcnode_gpu_miner_out} &
+    echo $! > ${bcnode_gpu_miner_pid}
+
+    tail -n 10 ${bcnode_gpu_miner_out}
 
     echo -e "${GREEN}Done.${NC}"
     echo
