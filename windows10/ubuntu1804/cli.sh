@@ -7,6 +7,7 @@ YELLOW='\033[0;33m'
 
 bcnode_image="local/bcnode:latest"
 bcnode_container_name="bcnode"
+bcnode_gpu_docker_pid="/var/run/bcnode_gpu_miner.pid"
 
 action=$1
 
@@ -20,6 +21,11 @@ set -e pipefail
 if [[ "$action" == "clean" ]]; then
     echo -e "${GREEN}Killing containers if running, cleaning up...${NC}"
     docker rm -f ${bcnode_container_name}
+    if [[ -f "$bcnode_gpu_docker_pid" ]]; then
+        pid=`cat $bcnode_gpu_docker_pid`
+        echo -e "${GREEN}Killing bcnode_gpu_docker_pid $pid...${NC}"
+        kill -15 $pid
+    fi
 elif [[ "$action" == "build_image" ]]; then
     echo -e "${GREEN}Pulling latest upstream image...${NC}"
     docker pull blockcollider/bcnode:latest
@@ -85,6 +91,7 @@ else
 
     cd ..
     nohup ./releases/bcnode_gpu_miner &> /tmp/miner.out &
+    echo $! > /var/run/bcnode_gpu_miner.pid
 
     echo -e "${GREEN}Done.${NC}"
     echo
