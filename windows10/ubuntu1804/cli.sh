@@ -10,7 +10,7 @@ bcnode_container_name="bcnode"
 
 action=$1
 
-if [[ "$action" != "clean" ]] || [[ "$action" != "start" ]]; then
+if [[ "$action" != "clean" ]] && [[ "$action" != "start" ]] &&  [[ "$action" != "build_image" ]]; then
     echo -e "${RED}Invalid action. Has to be ./cli.sh <start|clean> NC}"
     exit 1
 fi
@@ -25,6 +25,7 @@ elif [[ "$action" == "build_image" ]]; then
     docker pull blockcollider/bcnode:latest
 
     echo -e "${GREEN}Building new image...${NC}"
+    cd bcnode_gpu_docker
     docker build -t local/bcnode -f Dockerfile.bcnode .
 
     docker rmi blockcollider/bcnode:latest
@@ -34,6 +35,7 @@ elif [[ "$action" == "build_image" ]]; then
 
     echo -e "${GREEN}Done.${NC}"
 else
+    cd bcnode_gpu_docker
     echo
     echo -e "${RED}Make sure to manually run './cli.sh cleanup' before starting this script!${NC}"
     echo
@@ -81,13 +83,12 @@ else
            ${bcnode_image} \
            start --rovers --rpc --ws --ui --node --scookie "${BC_SCOOKIE}" 2>&1
 
+    cd ..
+    nohup ./releases/bcnode_gpu_miner &> /tmp/miner.out &
+
     echo -e "${GREEN}Done.${NC}"
     echo
     echo -e "${YELLOW}Verify everything runs smoothly with: docker logs -f bcnode --tail 100"
-    echo -e "Hit CTRL-C to abort the output."
-    echo
-    echo -e "Use ./cleanup.sh to stop the miner before restarting it."
-    echo
     echo -e "${NC}"
 
     if [[ ${BC_TUNNEL_HTTPS:-false} == true ]]; then

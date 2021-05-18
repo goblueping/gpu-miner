@@ -16,21 +16,20 @@ sudo apt-get install -y cuda-toolkit-11-0 unzip wget curl jq
 echo -e "${GREEN}Installing docker ...${NC}"
 curl https://get.docker.com | sh
 sudo usermod -aG docker $USER
-sudo service docker restart
+sudo service docker stop
+sudo service docker start
 
 echo -e "${GREEN}Cloning gpu-miner repo to ~/ ...${NC}"
 cd ~/
 git clone --depth 1 https://github.com/goblueping/gpu-miner.git
 
-cd gpu-miner/windows10/ubuntu1804/bcnode_gpu_docker
+cd gpu-miner/windows10/ubuntu1804/
 sudo ./cli.sh build_image
 
 echo -e "${GREEN}Downloading the db snapshot ...${NC}"
 time wget https://bc-ephemeral.s3.amazonaws.com/_easysync_db.zip -O /tmp/_easysync_db.zip
 time echo "yy" | sudo ./import-db.sh /tmp/_easysync_db.zip # 20 min
-sudo ./cli.sh start
 
-cd ~/gpu-miner/releases/windows10/ubuntu1804/
-nohup ./miner &> /tmp/miner.out &
+sudo ./cli.sh start
 
 echo -e "${GREEN} run 'sudo docker logs -f bcnode --tail 10' to view logs${NC}"
