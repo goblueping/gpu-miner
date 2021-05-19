@@ -5,6 +5,8 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 
+export DEBIAN_FRONTEND=noninteractive
+
 sudo bash -c "echo '$USER     ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
 
 sudo apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
