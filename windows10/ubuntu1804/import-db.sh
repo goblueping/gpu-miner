@@ -35,7 +35,7 @@ then
 fi
 
 if [ -f "./cli.sh" ]; then
-    sh ./cli.sh clean || true
+    ./cli.sh clean
 else
   echo -e "${GREEN}Stopping current ${bcnode_container_name} container if running...${NC}"
   docker rm -f ${bcnode_container_name} > /dev/null 2>&1 || true

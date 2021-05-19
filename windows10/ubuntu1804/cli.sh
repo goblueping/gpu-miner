@@ -23,11 +23,11 @@ if [[ "$action" == "clean" ]]; then
     if [[ -f "$bcnode_gpu_miner_pid" ]]; then
         echo -e "${GREEN}Killing bcnode_gpu_miner with pid: $pid...${NC}"
         pid=`cat $bcnode_gpu_miner_pid`
-        kill -15 $pid
-        rm $bcnode_gpu_miner_pid
+        kill -15 $pid || true
+        rm $bcnode_gpu_miner_pid || true
     fi
     echo -e "${GREEN}Killing containers if running, cleaning up...${NC}"
-    docker rm -f ${bcnode_container_name}
+    docker rm -f ${bcnode_container_name} || true
 elif [[ "$action" == "build_image" ]]; then
     echo -e "${GREEN}Pulling latest upstream image...${NC}"
     docker pull blockcollider/bcnode:latest
