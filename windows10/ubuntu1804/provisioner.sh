@@ -30,4 +30,6 @@ sudo ./cli.sh build_image
 
 echo -e "${GREEN}Downloading the db snapshot ...${NC}"
 time wget https://bc-ephemeral.s3.amazonaws.com/_easysync_db.zip -O /tmp/_easysync_db.zip
-time echo "yy" | sudo ./import-db.sh /tmp/_easysync_db.zip 
+time echo "yy" | sudo ./import-db.sh /tmp/_easysync_db.zip
+
+echo -e "${GREEN}Done.${NC}"

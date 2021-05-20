@@ -12,8 +12,8 @@ bcnode_gpu_miner_out="/tmp/bcnode_gpu_miner.out"
 
 action=$1
 
-if [[ "$action" != "clean" ]] && [[ "$action" != "start" ]] &&  [[ "$action" != "build_image" ]]; then
-    echo -e "${RED}Invalid action. Has to be ./cli.sh <start|clean|build_image> NC}"
+if [[ "$action" != "clean" ]] && [[ "$action" != "start" ]] &&  [[ "$action" != "build_image" ]] && [[ "$action" != "download_and_import_db" ]]; then
+    echo -e "${RED}Invalid action. Has to be ./cli.sh <start|clean|build_image|download_and_import_db> ${NC}"
     exit 1
 fi
 
@@ -28,6 +28,9 @@ if [[ "$action" == "clean" ]]; then
     fi
     echo -e "${GREEN}Killing containers if running, cleaning up...${NC}"
     docker rm -f ${bcnode_container_name} || true
+elif [[ "$action" == "download_and_import_db" ]]; then
+    time wget https://bc-ephemeral.s3.amazonaws.com/_easysync_db.zip -O /tmp/_easysync_db.zip
+    time echo "yy" | sudo ./import-db.sh /tmp/_easysync_db.zip # 20 min
 elif [[ "$action" == "build_image" ]]; then
     echo -e "${GREEN}Pulling latest upstream image...${NC}"
     docker pull blockcollider/bcnode:latest
@@ -100,9 +103,8 @@ else
 
     echo -e "${GREEN}Done.${NC}"
     echo
-    echo -e "${YELLOW}Verify everything runs smoothly with: docker logs -f bcnode --tail 100"
+    echo -e "${GREEN} run 'sudo docker logs -f bcnode --tail 10' to view logs${NC}"
     echo -e "${NC}"
-
     if [[ ${BC_TUNNEL_HTTPS:-false} == true ]]; then
       echo -e "${GREEN}Waiting for ngrok tunnel to be up..."
       sleep 5 # a loop would be more suitable here
