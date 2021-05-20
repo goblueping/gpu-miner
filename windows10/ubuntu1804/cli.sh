@@ -10,10 +10,14 @@ bcnode_container_name="bcnode"
 bcnode_gpu_miner_pid="/var/run/bcnode_gpu_miner.pid"
 bcnode_gpu_miner_out="/tmp/bcnode_gpu_miner.out"
 
+SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+cd $SCRIPT_DIR
+
 action=$1
+passed_bc_miner_key=$2
 
 if [[ "$action" != "clean" ]] && [[ "$action" != "start" ]] &&  [[ "$action" != "build_image" ]] && [[ "$action" != "download_and_import_db" ]]; then
-    echo -e "${RED}Invalid action. Has to be ./cli.sh <start|clean|build_image|download_and_import_db> ${NC}"
+    echo -e "${RED}Invalid action. Has to be ./cli.sh <start miner_key|clean|build_image|download_and_import_db> ${NC}"
     exit 1
 fi
 
@@ -54,6 +58,10 @@ else
     export CUDA_HOME=/usr/local/cuda
     export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64
     export PATH=${PATH}:${CUDA_HOME}/bin
+
+    if [[ "${passed_bc_miner_key}" ]]; then
+        sed -i "s/BC_MINER_KEY=.*/BC_MINER_KEY=$passed_bc_miner_key/g" config
+    fi
 
     . ./config
 
