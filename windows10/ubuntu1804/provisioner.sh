@@ -30,8 +30,4 @@ sudo ./cli.sh build_image
 
 echo -e "${GREEN}Downloading the db snapshot ...${NC}"
 time wget https://bc-ephemeral.s3.amazonaws.com/_easysync_db.zip -O /tmp/_easysync_db.zip
-time echo "yy" | sudo ./import-db.sh /tmp/_easysync_db.zip # 20 min
-
-sudo ./cli.sh start
-
-echo -e "${GREEN} run 'sudo docker logs -f bcnode --tail 10' to view logs${NC}"
+time echo "yy" | sudo ./import-db.sh /tmp/_easysync_db.zip 
