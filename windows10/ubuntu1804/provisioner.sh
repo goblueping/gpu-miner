@@ -5,15 +5,13 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 
-export DEBIAN_FRONTEND=noninteractive
-
 sudo bash -c "echo '$USER     ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
 
 sudo apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
 sudo sh -c 'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
 sudo apt-get update
 echo -e "${GREEN}Installing cuda-toolkit ...${NC}"
-sudo apt-get install -y cuda-toolkit-11-0 unzip wget curl jq
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cuda-toolkit-11-0 unzip wget curl jq
 
 echo -e "${GREEN}Installing docker ...${NC}"
 curl https://get.docker.com | sh
