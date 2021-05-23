@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 NC='\033[0m'
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -16,8 +18,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cuda-toolkit-11-0 unzip w
 echo -e "${GREEN}Installing docker ...${NC}"
 curl https://get.docker.com | sh
 sudo usermod -aG docker $USER
-sudo service docker stop
-sudo service docker start
+sudo service docker stop || sudo service docker start
 
 echo -e "${GREEN}Cloning gpu-miner repo to ~/ ...${NC}"
 cd ~/
