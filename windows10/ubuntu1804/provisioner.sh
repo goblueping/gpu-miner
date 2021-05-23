@@ -13,11 +13,13 @@ function install_docker {
         echo "docker is already installed"
         if (! docker stats --no-stream &> /dev/null); then
             sudo service docker start
+            sleep 3 # this ensure the docker is up
         fi
     else
         echo -e "${GREEN}Installing docker ...${NC}"
         curl https://get.docker.com | sh
         sudo service docker stop || sudo service docker start
+        sleep 3 # this ensure the docker is up
     fi
 }
 
