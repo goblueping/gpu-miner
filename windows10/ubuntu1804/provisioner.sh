@@ -11,6 +11,9 @@ function install_docker {
     sudo usermod -aG docker $USER
     if [[ $(which docker) && $(docker --version) ]]; then
         echo "docker is already installed"
+        if (! docker stats --no-stream &> /dev/null); then
+            sudo service docker start
+        fi
     else
         echo -e "${GREEN}Installing docker ...${NC}"
         curl https://get.docker.com | sh
