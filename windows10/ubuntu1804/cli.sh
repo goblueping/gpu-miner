@@ -21,6 +21,12 @@ if [[ "$action" != "clean" ]] && [[ "$action" != "start" ]] &&  [[ "$action" != 
     exit 1
 fi
 
+if (! docker stats --no-stream &> /dev/null); then
+    echo -e "${GREEN}Docker is not running, starting it...${NC}"
+    sudo service docker start
+    sleep 3 # this ensure the docker is up
+fi
+
 set -e pipefail
 
 if [[ "$action" == "clean" ]]; then
