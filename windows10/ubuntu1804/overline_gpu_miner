@@ -1,0 +1,352 @@
+#!/usr/bin/env bash
+
+set -e
+
+NC='\033[0m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+
+BOOTSTRAP_DIR="/mnt/gpu-miner-bootstrap/"
+GPU_MINER_REPO_NAME="gpu-miner"
+UBUNTU1804_DIR="${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME}/windows10/ubuntu1804"
+BCNODE_GPU_MINER_PID="/var/run/bcnode_gpu_miner.pid"
+BCNODE_CONTAINER_NAME="bcnode"
+BCNODE_IMAGE="local/bcnode:latest"
+BCNODE_GPU_MINER_OUT="/tmp/bcnode_gpu_miner.out"
+BOOTSTRAP_LOG_FILE="$BOOTSTRAP_DIR/overline_bootstrap.log"
+BC_MINER_KEY_LOCATION="$BOOTSTRAP_DIR/bc_miner_key"
+DB_IMPORTED_FLAG="$BOOTSTRAP_DIR/db_imported_flag.lock"
+DB_SNAPSHOT_LOCATTION="/tmp/_easysync_db.zip"
+
+mkdir -p $BOOTSTRAP_DIR
+
+function ensure_docker_daemon_running() {
+    if [[ $(which docker) && $(docker --version) ]]; then
+        if (! docker stats --no-stream &> /dev/null); then
+            echo -e "${GREEN}Docker is not running, starting it...${NC}"
+            service docker start
+            sleep 3 # this ensure the docker is up
+        fi
+    fi
+}
+
+function install_docker {
+    if [[ $(which docker) && $(docker --version) ]]; then
+        echo "docker is already installed"
+        ensure_docker_daemon_running
+    else
+        echo -e "${GREEN}Installing docker ...${NC}"
+        curl https://get.docker.com | sh
+        service docker stop || service docker start
+        sleep 3 # this ensure the docker is up
+        usermod -aG docker $USER
+    fi
+}
+
+function clone_gpu_miner_repo {
+    cd $BOOTSTRAP_DIR
+    if [ ! -d "${GPU_MINER_REPO_NAME}" ]; then
+        echo -e "${GREEN}Cloning ${GPU_MINER_REPO_NAME} repo to ${BOOTSTRAP_DIR} ...${NC}"
+        git clone --depth 1 https://github.com/goblueping/gpu-miner.git
+    else
+        echo -e "${GREEN}Pulling the latest repo ${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME} ...${NC}"
+        cd ${GPU_MINER_REPO_NAME}; git checkout . || git checkout main || git pull origin main
+    fi
+}
+
+function build_docker_images {
+    # if docker image
+    if [[ -z "$(docker images -q ${BCNODE_IMAGE})" ]]; then
+        echo -e "${GREEN}Building docker images ...${NC}"
+        cd ${UBUNTU1804_DIR}/bcnode_gpu_docker/
+
+        echo -e "${GREEN}Pulling latest upstream image...${NC}"
+        docker pull blockcollider/bcnode:latest
+
+        echo -e "${GREEN}Building new image...${NC}"
+        docker build -t local/bcnode -f Dockerfile.bcnode .
+
+        docker rmi blockcollider/bcnode:latest
+
+        echo -e "${GREEN}Showing all locally available Docker images:${NC}"
+        docker images
+
+        echo -e "${GREEN}Done.${NC}"
+    else
+        echo -e "${GREEN} Reuse ${BCNODE_IMAGE}...${NC}"
+    fi
+}
+
+
+function install_cuda {
+    if [ -z "$(dpkg --list | grep cuda-toolkit-11-0)" ]; then
+        echo -e "${GREEN}Installing cuda-toolkit-11-0 ...${NC}"
+        apt-get update && apt-get install -y gnupg
+        apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+        sh -c 'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
+        apt-get update
+        echo -e "${GREEN}Installing cuda-toolkit ...${NC}"
+        DEBIAN_FRONTEND=noninteractive apt-get install -y cuda-toolkit-11-0 unzip wget curl jq
+    else
+        echo -e "${GREEN}cuda-toolkit-11-0 is already installed ...${NC}"
+    fi
+}
+
+action=$1
+BC_MINER_KEY=$2
+
+function echo_help {
+    echo "Usage:"
+    echo "  overline_gpu_miner <command> <MINER_KEY>"
+    echo ""
+    echo "Commands:"
+    echo "  start                Start the miner"
+    echo "  build_image          Build a new docker image"
+    echo "  miner_key            Print miner key"
+    echo "  status               Status of the miner"
+    echo "  reload               Reload snapshot and start to mine"
+    echo "  stop                 Stop the miner"
+}
+
+if [ -z "$BC_MINER_KEY" ]; then
+   if [ -f "$BC_MINER_KEY_LOCATION" ]; then
+        BC_MINER_KEY=$(cat $BC_MINER_KEY_LOCATION)
+   fi
+else
+   echo $BC_MINER_KEY > $BC_MINER_KEY_LOCATION
+fi
+
+if [ -z "$BC_MINER_KEY" ]; then
+   if [ "$action" != "stop" ] && [ "$action" != "status" ] && [ "$action" != "build_image" ]; then
+     echo "BC_MINER_KEY is required"
+     echo_help
+     exit 1
+   fi
+fi
+
+LOCKFILE="$BOOTSTRAP_DIR/$action.lock"
+STARTING_LOCKFILE="$BOOTSTRAP_DIR/start.lock"
+RELOAD_LOCKFILE="$BOOTSTRAP_DIR/reload.lock"
+
+# has to run under root
+
+function ensure_disk_size {
+    min_disk_size=62914560 # 60GB
+    disk_size=$(df | grep /$ | awk '{ print $2 }')
+    if [ "$disk_size" -lt "$min_disk_size" ]; then
+        echo "Insufficient Disk Size. Requires at least 60GB"
+        exit 1
+    fi
+}
+
+
+function install_docker {
+    if [[ $(which docker) && $(docker --version) ]]; then
+        echo "docker is already installed"
+    else
+        apt-get update -y > /dev/null
+        apt-get install -y ca-certificates apt-transport-https gnupg2 software-properties-common
+        apt-get install -y unzip gcc make git net-tools vim tmux lshw jq wget curl  build-essential
+
+        # install docker
+        curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+        add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian buster stable"
+        apt-get update -y  > /dev/null
+        apt-get install -y docker-ce docker-ce-cli containerd.io
+    fi
+}
+
+function install_nvdia_docker_toolkit {
+    if [[ $(which nvidia-container-toolkit) ]]; then
+        echo "nvidia-container-toolkit is already installed"
+    else
+        distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+        curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | apt-key add -
+        curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | tee /etc/apt/sources.list.d/nvidia-docker.list
+
+        apt-get update && apt-get install -y nvidia-container-toolkit
+    fi
+}
+
+function ensure_os_version {
+    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+
+    if [ $distribution != "debian10" ]; then
+        echo "OS has to be Debian GNU/Linux 10 (buster)"
+        exit 1
+    fi
+}
+
+
+function test_run_nvidia_cuda {
+    docker run --rm --gpus all nvidia/cuda:10.0-base nvidia-smi
+}
+
+function clone_gpu_docker_repo {
+    if [ ! -d "$BOOTSTRAP_DIR/bcnode-gpu-docker" ]; then
+        cd $BOOTSTRAP_DIR
+        git clone --depth 1 https://github.com/trick77/bcnode-gpu-docker bcnode-gpu-docker
+    fi
+}
+
+
+function load_new_snapshot() {
+    cd ${UBUNTU1804_DIR}
+    if [[ -f "$DB_SNAPSHOT_LOCATTION" ]]; then
+        echo -e "${GREEN} ${DB_SNAPSHOT_LOCATTION} was already downloaded. Reusing it...${NC}"
+    else
+        echo "Downloading new snapshot"
+        time wget https://bc-ephemeral.s3.amazonaws.com/_easysync_db.zip -O ${DB_SNAPSHOT_LOCATTION}
+    fi
+    if [[ -f "$DB_IMPORTED_FLAG" ]]; then
+        echo -e "${GREEN} ${DB_SNAPSHOT_LOCATTION} was already imported. Skipping ...${NC}"
+    else
+        echo -e "{GREEN} Loading the snapshot ${NC}"
+        time echo "yy" | ./import-db.sh ${DB_SNAPSHOT_LOCATTION}
+    fi
+}
+
+function stop_miner() {
+    if [[ -f "$BCNODE_GPU_MINER_PID" ]]; then
+        echo -e "${GREEN}Killing bcnode_gpu_miner with pid: $pid...${NC}"
+        pid=`cat $BCNODE_GPU_MINER_PID`
+        kill -15 $pid || true
+        rm $BCNODE_GPU_MINER_PID || true
+    fi
+    echo -e "${GREEN}Killing containers if running, cleaning up...${NC}"
+    docker rm -f ${BCNODE_CONTAINER_NAME} || true
+}
+
+function start_to_mine {
+    stop_miner
+
+    cd ${UBUNTU1804_DIR}/bcnode_gpu_docker/
+
+    export CUDA_HOME=/usr/local/cuda
+    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64
+    export PATH=${PATH}:${CUDA_HOME}/bin
+
+
+    sed -i "s/BC_MINER_KEY=.*/BC_MINER_KEY=$BC_MINER_KEY/g" config
+
+    . ./config
+
+    nohup ${UBUNTU1804_DIR}/releases/bcnode_gpu_miner &> ${BCNODE_GPU_MINER_OUT} &
+    echo $! > ${BCNODE_GPU_MINER_PID}
+    sleep 2
+    tail -n 10 ${BCNODE_GPU_MINER_OUT}
+
+
+    echo -e "${GREEN}Starting bcnode container...${NC}"
+    docker run -d --restart=unless-stopped --name ${BCNODE_CONTAINER_NAME} \
+           -p 3000:3000 -p 16060:16060/tcp -p 16060:16060/udp -p 16061:16061/tcp -p 16061:16061/udp \
+           --memory-reservation="6900m" \
+           --env-file ./config \
+           --network host \
+           --mount source=db,target=/bc/_data \
+           ${BCNODE_IMAGE} \
+           start --rovers --rpc --ws --ui --node --scookie "${BC_SCOOKIE}" 2>&1
+
+    echo -e "${GREEN}Done.${NC}"
+    echo
+    echo -e "${NC}"
+    if [[ ${BC_TUNNEL_HTTPS:-false} == true ]]; then
+      echo -e "${GREEN}Waiting for ngrok tunnel to be up..."
+      sleep 5 # a loop would be more suitable here
+      echo -e "Your personal HTTPS ngrok address is:${NC}"
+      curl -s --basic --user ":${BC_SCOOKIE}" -H "content-type: application/json" -H 'accept: application/json' -d '{ "jsonrpc": "2.0", "id": 123, "method": "getSettings", "params": [] }' http://localhost:3000/rpc | jq  --raw-output '.result.ngrokTunnel'
+    fi
+
+}
+
+################################################### Actions ##################################################################
+
+if [ "$action" == "start" ]; then
+    if [[ -f "$LOCKFILE" ]]; then
+        echo "Another bootstrap is running. ignore this run"
+        exit 0
+    fi
+    if [[ -f "$RELOAD_LOCKFILE" ]]; then
+        echo "Another reload is running. ignore this run"
+        exit 0
+    fi
+    echo "Creating lockfile: $LOCKFILE"
+    touch $LOCKFILE
+    trap '{ rm -f -- "$LOCKFILE"; }' EXIT
+
+    echo "Checking system requirement"
+
+    ensure_disk_size
+
+    echo "Start to bootstrap" # don't change it
+
+    install_cuda
+    install_docker
+    clone_gpu_miner_repo
+
+    build_docker_images
+    load_new_snapshot
+    start_to_mine
+    echo "Bootstrap is done" # don't change this
+elif [ "$action" == "reload" ]; then
+    if [[ -f "$LOCKFILE" ]]; then
+        echo "Another reload is running. ignore this run"
+        exit 0
+    fi
+    if [[ -f "$STARTING_LOCKFILE" ]]; then
+        echo "Another bootstrap is running. ignore this run"
+        exit 0
+    fi
+
+    echo "Creating lockfile: $LOCKFILE"
+    touch $LOCKFILE
+    trap '{ rm -f -- "$LOCKFILE"; }' EXIT
+
+    ensure_docker_daemon_running
+
+    stop_miner
+
+    rm ${DB_SNAPSHOT_LOCATTION} || true
+
+    build_docker_images
+    load_new_snapshot
+
+    start_to_mine
+elif [ "$action" == "build_image" ]; then
+    if [[ -f "$LOCKFILE" ]]; then
+        echo "Another reload is running. ignore this run"
+        exit 0
+    fi
+    if [[ -f "$STARTING_LOCKFILE" ]]; then
+        echo "Another bootstrap is running. ignore this run"
+        exit 0
+    fi
+
+    echo "Creating lockfile: $LOCKFILE"
+    touch $LOCKFILE
+    trap '{ rm -f -- "$LOCKFILE"; }' EXIT
+
+    ensure_docker_daemon_running
+
+    stop_miner
+
+    build_docker_images
+elif [ "$action" == "status" ]; then
+    if [[ -f "$STARTING_LOCKFILE" ]]; then
+        echo "bootstraping"
+    elif [[ -f "$RELOAD_LOCKFILE" ]]; then
+        echo "reloading"
+    elif [[ $(docker ps | grep bcnode) ]]; then
+        echo "running"
+    else
+        echo "not_running"
+    fi
+elif [ "$action" == "miner_key" ]; then
+    cat $BC_MINER_KEY_LOCATION
+elif [ "$action" == "stop" ]; then
+    stop_miner
+else
+    echo_help
+fi
+

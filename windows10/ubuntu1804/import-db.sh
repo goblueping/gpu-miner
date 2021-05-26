@@ -34,8 +34,8 @@ then
     exit 1
 fi
 
-if [ -f "./cli.sh" ]; then
-    ./cli.sh clean
+if [ -f "./overline_gpu_miner" ]; then
+    ./overline_gpu_miner clean
 else
   echo -e "${GREEN}Stopping current ${bcnode_container_name} container if running...${NC}"
   docker rm -f ${bcnode_container_name} > /dev/null 2>&1 || true
