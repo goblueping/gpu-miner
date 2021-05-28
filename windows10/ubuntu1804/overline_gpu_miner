@@ -33,7 +33,7 @@ function ensure_docker_daemon_running() {
 
 function install_docker {
     if [[ $(which docker) && $(docker --version) ]]; then
-        echo "docker is already installed"
+        echo -e "${GREEN}docker is already installed${NC}"
         ensure_docker_daemon_running
     else
         echo -e "${GREEN}Installing docker ...${NC}"
@@ -74,7 +74,7 @@ function build_docker_images {
 
         echo -e "${GREEN}Done.${NC}"
     else
-        echo -e "${GREEN} Reuse ${BCNODE_IMAGE}...${NC}"
+        echo -e "${GREEN}Reuse ${BCNODE_IMAGE}...${NC}"
     fi
 }
 
@@ -132,7 +132,7 @@ RELOAD_LOCKFILE="$BOOTSTRAP_DIR/reload.lock"
 # has to run under root
 
 function ensure_disk_size {
-    min_disk_size=62914560 # 60GB
+    min_disk_size=157286400 # 150GB
     disk_size=$(df | grep /$ | awk '{ print $2 }')
     if [ "$disk_size" -lt "$min_disk_size" ]; then
         echo "Insufficient Disk Size. Requires at least 60GB"
@@ -194,16 +194,17 @@ function clone_gpu_docker_repo {
 function load_new_snapshot() {
     cd ${UBUNTU1804_DIR}
     if [[ -f "$DB_SNAPSHOT_LOCATTION" ]]; then
-        echo -e "${GREEN} ${DB_SNAPSHOT_LOCATTION} was already downloaded. Reusing it...${NC}"
+        echo -e "${GREEN}${DB_SNAPSHOT_LOCATTION} was already downloaded. Reusing it...${NC}"
     else
         echo "Downloading new snapshot"
         time wget https://bc-ephemeral.s3.amazonaws.com/_easysync_db.zip -O ${DB_SNAPSHOT_LOCATTION}
     fi
     if [[ -f "$DB_IMPORTED_FLAG" ]]; then
-        echo -e "${GREEN} ${DB_SNAPSHOT_LOCATTION} was already imported. Skipping ...${NC}"
+        echo -e "${GREEN}${DB_SNAPSHOT_LOCATTION} was already imported. Skipping ...${NC}"
     else
         echo -e "{GREEN} Loading the snapshot ${NC}"
         time echo "yy" | ./import-db.sh ${DB_SNAPSHOT_LOCATTION}
+        touch $DB_IMPORTED_FLAG
     fi
 }
 
@@ -211,7 +212,7 @@ function stop_miner() {
     if [[ -f "$BCNODE_GPU_MINER_PID" ]]; then
         echo -e "${GREEN}Killing bcnode_gpu_miner with pid: $pid...${NC}"
         pid=`cat $BCNODE_GPU_MINER_PID`
-        kill -15 $pid || true
+        kill -15 $pid &> /dev/null || true
         rm $BCNODE_GPU_MINER_PID || true
     fi
     echo -e "${GREEN}Killing containers if running, cleaning up...${NC}"
@@ -238,9 +239,8 @@ function start_to_mine {
     tail -n 10 ${BCNODE_GPU_MINER_OUT}
 
 
-    echo -e "${GREEN}Starting bcnode container...${NC}"
+    echo -e "${GREEN}Starting bcnode container with miner key ${MINER_KEY}...${NC}"
     docker run -d --restart=unless-stopped --name ${BCNODE_CONTAINER_NAME} \
-           -p 3000:3000 -p 16060:16060/tcp -p 16060:16060/udp -p 16061:16061/tcp -p 16061:16061/udp \
            --memory-reservation="6900m" \
            --env-file ./config \
            --network host \
@@ -249,8 +249,6 @@ function start_to_mine {
            start --rovers --rpc --ws --ui --node --scookie "${BC_SCOOKIE}" 2>&1
 
     echo -e "${GREEN}Done.${NC}"
-    echo
-    echo -e "${NC}"
     if [[ ${BC_TUNNEL_HTTPS:-false} == true ]]; then
       echo -e "${GREEN}Waiting for ngrok tunnel to be up..."
       sleep 5 # a loop would be more suitable here
@@ -275,11 +273,11 @@ if [ "$action" == "start" ]; then
     touch $LOCKFILE
     trap '{ rm -f -- "$LOCKFILE"; }' EXIT
 
-    echo "Checking system requirement"
+    echo -e "${GREEN}Checking system requirement${NC}"
 
     ensure_disk_size
 
-    echo "Start to bootstrap" # don't change it
+    echo "Starting"
 
     install_cuda
     install_docker
@@ -288,7 +286,6 @@ if [ "$action" == "start" ]; then
     build_docker_images
     load_new_snapshot
     start_to_mine
-    echo "Bootstrap is done" # don't change this
 elif [ "$action" == "reload" ]; then
     if [[ -f "$LOCKFILE" ]]; then
         echo "Another reload is running. ignore this run"
