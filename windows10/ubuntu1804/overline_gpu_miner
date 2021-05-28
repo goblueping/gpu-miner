@@ -56,8 +56,9 @@ function clone_gpu_miner_repo {
 }
 
 function build_docker_images {
-    # if docker image
-    if [[ -z "$(docker images -q ${BCNODE_IMAGE})" ]]; then
+    force=$1
+    if [[ -z "$(docker images -q ${BCNODE_IMAGE})" ]] || [[ "$force" == "true" ]]; then
+        docker rmi ${BCNODE_IMAGE} &> /dev/null || true
         echo -e "${GREEN}Building docker images ...${NC}"
         cd ${UBUNTU1804_DIR}/bcnode_gpu_docker/
 
@@ -283,7 +284,7 @@ if [ "$action" == "start" ]; then
     install_docker
     clone_gpu_miner_repo
 
-    build_docker_images
+    build_docker_images false
     load_new_snapshot
     start_to_mine
 elif [ "$action" == "reload" ]; then
@@ -306,7 +307,7 @@ elif [ "$action" == "reload" ]; then
 
     rm ${DB_SNAPSHOT_LOCATTION} || true
 
-    build_docker_images
+    build_docker_images true
     load_new_snapshot
 
     start_to_mine
@@ -328,7 +329,7 @@ elif [ "$action" == "build_image" ]; then
 
     stop_miner
 
-    build_docker_images
+    build_docker_images true
 elif [ "$action" == "status" ]; then
     if [[ -f "$STARTING_LOCKFILE" ]]; then
         echo "bootstraping"
