@@ -306,6 +306,7 @@ elif [ "$action" == "reload" ]; then
     stop_miner
 
     rm ${DB_SNAPSHOT_LOCATTION} || true
+    rm ${DB_IMPORTED_FLAG} || true
 
     build_docker_images true
     load_new_snapshot
