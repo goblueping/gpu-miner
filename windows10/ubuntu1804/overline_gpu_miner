@@ -142,22 +142,6 @@ function ensure_disk_size {
 }
 
 
-function install_docker {
-    if [[ $(which docker) && $(docker --version) ]]; then
-        echo "docker is already installed"
-    else
-        apt-get update -y > /dev/null
-        apt-get install -y ca-certificates apt-transport-https gnupg2 software-properties-common
-        apt-get install -y unzip gcc make git net-tools vim tmux lshw jq wget curl  build-essential
-
-        # install docker
-        curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
-        add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian buster stable"
-        apt-get update -y  > /dev/null
-        apt-get install -y docker-ce docker-ce-cli containerd.io
-    fi
-}
-
 function install_nvdia_docker_toolkit {
     if [[ $(which nvidia-container-toolkit) ]]; then
         echo "nvidia-container-toolkit is already installed"
