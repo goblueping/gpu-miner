@@ -8,6 +8,7 @@ import os
 import time
 import json
 import argparse
+import urllib
 import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import logging
@@ -52,18 +53,14 @@ class S(BaseHTTPRequestHandler):
     def to_json_binary(self, data):
         return json.dumps(data).encode('utf8')
 
-    def do_GET(self):
-        self._set_headers()
-        self.wfile.write(self.to_json_binary('ok'))
-
     def do_HEAD(self):
         self._set_headers()
 
-    def do_POST(self):
-        content_len = int(self.headers.get('Content-Length', 0))
-        raw_post_body = self.rfile.read(content_len)
-        post_body = json.loads(raw_post_body)
-        command = post_body.get('command')
+    def do_GET(self):
+        parsed_path = urllib.parse.urlsplit(self.path)
+        query = urllib.parse.parse_qs(parsed_path.query)
+
+        command = query.get('command', [None])[0]
 
         if command is None:
             self._set_headers(400)
