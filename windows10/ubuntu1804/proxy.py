@@ -13,6 +13,7 @@ import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import logging
 import logging.handlers
+import socket
 
 # 20 MB
 log_filepath = os.path.join(os.path.expanduser("~"), 'overline_one_click_miner_proxy.log')
@@ -44,6 +45,12 @@ def run_command(command):
         logger.exception('Failed to run command with %s', e)
         return {'status': 'error', 'output': e.message}
 
+# https://docs.microsoft.com/en-us/windows/wsl/compare-versions#accessing-network-applications
+def get_ip_address():
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.connect(('8.8.8.8', 80))
+        return s.getsockname()[0]
+
 class S(BaseHTTPRequestHandler):
     def _set_headers(self, status=200):
         self.send_response(status)
@@ -60,23 +67,29 @@ class S(BaseHTTPRequestHandler):
         parsed_path = urllib.parse.urlsplit(self.path)
         query = urllib.parse.parse_qs(parsed_path.query)
 
-        command = query.get('command', [None])[0]
+        command_type = query.get('command', [None])[0]
 
-        if command is None:
+        if command_type is None:
             self._set_headers(400)
             self.wfile.write(self.to_json_binary({'error': 'command is required in the body'}))
             return
+        if command_type == 'my_ip':
+            ip = get_ip_address()
+            result = {'status': 'success', 'output': ip}
+            self._set_headers()
+            self.wfile.write(self.to_json_binary(result))
+            return
 
-        if command == 'wallet_address':
+        if command_type == 'wallet_address':
             command = f"{OVERLINE_GPU_MINER_EXECUTABLE} miner_key"
-        elif command == 'status':
+        elif command_type == 'status':
             command = f'{OVERLINE_GPU_MINER_EXECUTABLE} status'
-        elif command == 'action_log':
+        elif command_type == 'action_log':
             command = f'tail -n 20 {ACTION_LOG}'
-        elif command == 'miner_log':
+        elif command_type == 'miner_log':
             epoch_time = int(time.time())
             command = f"docker logs --since {epoch_time-40} {BCNODE_CONTAINER_NAME}"
-        elif command == 'check_executable':
+        elif command_type == 'check_executable':
             command = f"ls {OVERLINE_GPU_MINER_EXECUTABLE}"
         else:
             self._set_headers(400)
