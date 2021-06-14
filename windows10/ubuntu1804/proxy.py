@@ -103,7 +103,7 @@ class S(BaseHTTPRequestHandler):
         self.wfile.write(self.to_json_binary(result))
 
 
-def run(server_class=HTTPServer, handler_class=S, addr="0.0.0.0", port=8000):
+def run(server_class=HTTPServer, handler_class=S, addr="0.0.0.0", port=31234):
     server_address = (addr, port)
     httpd = server_class(server_address, handler_class)
 
