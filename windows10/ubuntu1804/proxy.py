@@ -80,7 +80,7 @@ class S(BaseHTTPRequestHandler):
             self.wfile.write(self.to_json_binary(result))
             return
 
-        if command_type == 'wallet_address':
+        if command_type == 'miner_key':
             command = f"{OVERLINE_GPU_MINER_EXECUTABLE} miner_key"
         elif command_type == 'status':
             command = f'{OVERLINE_GPU_MINER_EXECUTABLE} status'
@@ -112,19 +112,4 @@ def run(server_class=HTTPServer, handler_class=S, addr="0.0.0.0", port=8000):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run a simple HTTP server")
-    parser.add_argument(
-        "-l",
-        "--listen",
-        default="0.0.0.0",
-        help="Specify the IP address on which the server listens",
-    )
-    parser.add_argument(
-        "-p",
-        "--port",
-        type=int,
-        default=8000,
-        help="Specify the port on which the server listens",
-    )
-    args = parser.parse_args()
-    run(addr=args.listen, port=args.port)
+    run()
