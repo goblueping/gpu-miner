@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 OVERLINE_GPU_MINER_EXECUTABLE = '/usr/local/bin/overline_gpu_miner'
 BCNODE_CONTAINER_NAME = 'bcnode'
+ACTION_LOG = '/mnt/gpu-miner-bootstrap/overline_action.log'
 
 def run_command(command):
     logger.info('Running command: %s', command)
