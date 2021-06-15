@@ -334,7 +334,7 @@ elif [ "$action" == "start_proxy" ]; then
     if [ ! -f "/usr/local/bin/overline_gpu_miner_proxy" ]; then
         wget https://raw.githubusercontent.com/goblueping/gpu-miner/main/windows10/ubuntu1804/proxy.py -O /usr/local/bin/overline_gpu_miner_proxy && chmod +x /usr/local/bin/overline_gpu_miner_proxy
     fi
-    /usr/local/bin/overline_gpu_miner_proxy || true
+    nohup /usr/local/bin/overline_gpu_miner_proxy &> /dev/null &
     curl localhost:31234?command=my_ip
 elif [ "$action" == "stop" ]; then
     stop_miner
