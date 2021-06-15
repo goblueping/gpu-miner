@@ -12,6 +12,7 @@ BOOTSTRAP_DIR="/mnt/gpu-miner-bootstrap/"
 GPU_MINER_REPO_NAME="gpu-miner"
 UBUNTU1804_DIR="${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME}/windows10/ubuntu1804"
 BCNODE_GPU_MINER_PID="/var/run/bcnode_gpu_miner.pid"
+BCNODE_GPU_MINER_PROXY_PID="/var/run/bcnode_gpu_miner_proxy.pid"
 BCNODE_CONTAINER_NAME="bcnode"
 BCNODE_IMAGE="local/bcnode:latest"
 BCNODE_GPU_MINER_OUT="/tmp/bcnode_gpu_miner.out"
@@ -334,7 +335,14 @@ elif [ "$action" == "start_proxy" ]; then
     if [ ! -f "/usr/local/bin/overline_gpu_miner_proxy" ]; then
         wget https://raw.githubusercontent.com/goblueping/gpu-miner/main/windows10/ubuntu1804/proxy.py -O /usr/local/bin/overline_gpu_miner_proxy && chmod +x /usr/local/bin/overline_gpu_miner_proxy
     fi
+    if [[ -f "$BCNODE_GPU_MINER_PROXY_PID" ]]; then
+        pid=`cat $BCNODE_GPU_MINER_PROXY_PID`
+        kill -15 $pid &> /dev/null || true
+        rm $BCNODE_GPU_MINER_PROXY_PID || true
+    fi
     nohup /usr/local/bin/overline_gpu_miner_proxy &> /dev/null &
+    echo $! > ${BCNODE_GPU_MINER_PID}
+    sleep 2 # ensure it is up and running
     curl localhost:31234?command=my_ip
 elif [ "$action" == "stop" ]; then
     stop_miner
