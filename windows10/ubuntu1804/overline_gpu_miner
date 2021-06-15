@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# TODO: add a command to launch proxy server
 set -e
 
 NC='\033[0m'
@@ -109,6 +110,7 @@ function echo_help {
     echo "  status               Status of the miner"
     echo "  reload               Reload snapshot and start to mine"
     echo "  stop                 Stop the miner"
+    echo "  start_proxy          Start proxy server"
 }
 
 if [ -z "$BC_MINER_KEY" ]; then
@@ -120,7 +122,7 @@ else
 fi
 
 if [ -z "$BC_MINER_KEY" ]; then
-   if [ "$action" != "stop" ] && [ "$action" != "status" ] && [ "$action" != "build_image" ]; then
+   if [ "$action" != "stop" ] && [ "$action" != "status" ] && [ "$action" != "build_image" ] && [ "$action" != "start_proxy" ]; then
      echo "BC_MINER_KEY is required"
      echo_help
      exit 1
@@ -328,6 +330,12 @@ elif [ "$action" == "status" ]; then
     fi
 elif [ "$action" == "miner_key" ]; then
     cat $BC_MINER_KEY_LOCATION
+elif [ "$action" == "start_proxy" ]; then
+    if [ ! -f "/usr/local/bin/overline_gpu_miner_proxy" ]; then
+        wget https://raw.githubusercontent.com/goblueping/gpu-miner/main/windows10/ubuntu1804/proxy.py -O /usr/local/bin/overline_gpu_miner_proxy && chmod +x /usr/local/bin/overline_gpu_miner_proxy
+    fi
+    /usr/local/bin/overline_gpu_miner_proxy || true
+    curl localhost:31234?command=my_ip
 elif [ "$action" == "stop" ]; then
     stop_miner
 else
