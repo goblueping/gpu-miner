@@ -341,7 +341,7 @@ elif [ "$action" == "start_proxy" ]; then
         rm $BCNODE_GPU_MINER_PROXY_PID || true
     fi
     nohup /usr/local/bin/overline_gpu_miner_proxy &> /dev/null &
-    echo $! > ${BCNODE_GPU_MINER_PID}
+    echo $! > ${BCNODE_GPU_MINER_PROXY_PID}
     sleep 2 # ensure it is up and running
     curl localhost:31234?command=my_ip
 elif [ "$action" == "stop" ]; then
