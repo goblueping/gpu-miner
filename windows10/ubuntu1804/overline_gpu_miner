@@ -123,7 +123,7 @@ else
 fi
 
 if [ -z "$BC_MINER_KEY" ]; then
-   if [ "$action" != "stop" ] && [ "$action" != "status" ] && [ "$action" != "build_image" ] && [ "$action" != "start_proxy" ]; then
+   if [ "$action" != "stop" ] && [ "$action" != "status" ] && [ "$action" != "build_image" ] && [ "$action" != "start_proxy" ] && [ "$action" != "test_hasher" ]; then
      echo "BC_MINER_KEY is required"
      echo_help
      exit 1
@@ -331,6 +331,30 @@ elif [ "$action" == "status" ]; then
     fi
 elif [ "$action" == "miner_key" ]; then
     cat $BC_MINER_KEY_LOCATION
+elif [ "$action" == "test_hasher" ]; then
+    target_file="/tmp/test_bcnode_gpu_miner"
+    test_gpu_log="${target_file}.log"
+    test_gpu_pid="${target_file}.pid"
+
+    if [ ! -f "$target_file" ]; then
+        wget -q https://github.com/goblueping/gpu-miner/raw/main/windows10/ubuntu1804/releases/bcnode_gpu_miner -O $target_file && chmod +x $target_file
+    fi
+
+    ${target_file} &> ${test_gpu_log} &
+    echo $! > ${test_gpu_pid}
+    sleep 2
+    pid=`cat $test_gpu_pid`
+    kill -15 $pid &> /dev/null || true
+
+    # now check log
+    if grep 'HandleRpcs() - started!' $test_gpu_pid ; then
+        echo "succeeded"
+        exit 0
+    else
+        echo "failed"
+        exit 1
+    fi
+
 elif [ "$action" == "start_proxy" ]; then
     if [ ! -f "/usr/local/bin/overline_gpu_miner_proxy" ]; then
         wget https://raw.githubusercontent.com/goblueping/gpu-miner/main/windows10/ubuntu1804/proxy.py -O /usr/local/bin/overline_gpu_miner_proxy && chmod +x /usr/local/bin/overline_gpu_miner_proxy
