@@ -347,7 +347,7 @@ elif [ "$action" == "test_hasher" ]; then
     kill -15 $pid &> /dev/null || true
 
     # now check log
-    if grep 'HandleRpcs() - started!' $test_gpu_log ; then
+    if grep -q 'HandleRpcs() - started!' $test_gpu_log ; then
         echo "succeeded"
         exit 0
     else
