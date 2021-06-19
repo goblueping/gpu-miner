@@ -332,6 +332,15 @@ elif [ "$action" == "status" ]; then
 elif [ "$action" == "miner_key" ]; then
     cat $BC_MINER_KEY_LOCATION
 elif [ "$action" == "test_hasher" ]; then
+    if [[ -f "$LOCKFILE" ]]; then
+        echo "Another reload is running. ignore this run"
+        exit 0
+    fi
+    echo "Creating lockfile: $LOCKFILE"
+    touch $LOCKFILE
+    trap '{ rm -f -- "$LOCKFILE"; }' EXIT
+
+    install_cuda
     target_file="/tmp/test_bcnode_gpu_miner"
     test_gpu_log="${target_file}.log"
     test_gpu_pid="${target_file}.pid"
