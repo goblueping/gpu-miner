@@ -334,7 +334,7 @@ elif [ "$action" == "miner_key" ]; then
 elif [ "$action" == "test_hasher" ]; then
     if [[ -f "$LOCKFILE" ]]; then
         echo "Another reload is running. ignore this run"
-        exit 0
+        exit 1
     fi
     echo "Creating lockfile: $LOCKFILE"
     touch $LOCKFILE
