@@ -14,7 +14,8 @@ UBUNTU1804_DIR="${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME}/windows10/ubuntu1804"
 BCNODE_GPU_MINER_PID="/var/run/bcnode_gpu_miner.pid"
 BCNODE_GPU_MINER_PROXY_PID="/var/run/bcnode_gpu_miner_proxy.pid"
 BCNODE_CONTAINER_NAME="bcnode"
-BCNODE_IMAGE="local/bcnode:latest"
+LOCAL_BCNODE_IMAGE_NAME="local/bcnode"
+BCNODE_IMAGE="$LOCAL_BCNODE_IMAGE_NAME:latest"
 BCNODE_GPU_MINER_OUT="/tmp/bcnode_gpu_miner.out"
 BOOTSTRAP_LOG_FILE="$BOOTSTRAP_DIR/overline_bootstrap.log"
 BC_MINER_KEY_LOCATION="$BOOTSTRAP_DIR/bc_miner_key"
@@ -68,8 +69,9 @@ function build_docker_images {
         echo -e "${GREEN}Pulling latest upstream image...${NC}"
         docker pull blockcollider/bcnode:latest
 
-        echo -e "${GREEN}Building new image...${NC}"
-        docker build -t local/bcnode -f Dockerfile.bcnode .
+        bcnode_image_id=$(docker image ls --no-trunc -q blockcollider/bcnode:latest | sed 's/:/-/')
+        echo -e "${GREEN}Building new image with bcnode sha: $bcnode_image_id ${NC}"
+        docker build -t $LOCAL_BCNODE_IMAGE_NAME -f Dockerfile.bcnode --build-arg BC_NODE_IMAGE_ID=$bcnode_image_id .
 
         docker rmi blockcollider/bcnode:latest
 

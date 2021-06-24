@@ -2,6 +2,10 @@ FROM blockcollider/bcnode
 
 RUN apt-get update && apt-get install -y --no-install-recommends libfile-slurp-perl patch && rm -rf /var/lib/apt/lists/*
 
+ARG BC_NODE_IMAGE_ID
+# DONT change the label key: bc.node.docker_image_id
+LABEL bc.node.docker_image_id=${BC_NODE_IMAGE_ID}
+
 # Custom entrypoint
 COPY bcnode/docker-entrypoint.sh /
 
