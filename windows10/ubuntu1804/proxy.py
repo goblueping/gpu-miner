@@ -92,6 +92,8 @@ class S(BaseHTTPRequestHandler):
             command = f"docker logs --since {epoch_time-40} {BCNODE_CONTAINER_NAME}"
         elif command_type == 'check_executable':
             command = f"ls {OVERLINE_GPU_MINER_EXECUTABLE}"
+        elif command_type == 'docker_image_id':
+            command = "docker inspect --format '{{ index .Config.Labels \"bc.node.docker_image_id\" }}' local/bcnode | sed 's/-/:/'"
         else:
             self._set_headers(400)
             self.wfile.write(self.to_json_binary({'error': 'invalid command'}))
