@@ -69,9 +69,10 @@ function build_docker_images {
         echo -e "${GREEN}Pulling latest upstream image...${NC}"
         docker pull blockcollider/bcnode:latest
 
-        bcnode_image_id=$(docker image ls --no-trunc -q blockcollider/bcnode:latest | sed 's/:/-/')
+        # this is actually the digest
+        bcnode_image_digest=$(docker images --digests --format "{{.Digest}}" blockcollider/bcnode | sed 's/:/-/')
         echo -e "${GREEN}Building new image with bcnode sha: $bcnode_image_id ${NC}"
-        docker build -t $LOCAL_BCNODE_IMAGE_NAME -f Dockerfile.bcnode --build-arg BC_NODE_IMAGE_ID=$bcnode_image_id .
+        docker build -t $LOCAL_BCNODE_IMAGE_NAME -f Dockerfile.bcnode --build-arg BC_NODE_IMAGE_DIGEST=$bcnode_image_digest .
 
         docker rmi blockcollider/bcnode:latest
 
