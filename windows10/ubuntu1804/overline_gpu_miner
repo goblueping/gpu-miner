@@ -323,9 +323,23 @@ elif [ "$action" == "build_image" ]; then
     build_docker_images true
 elif [ "$action" == "status" ]; then
     if [[ -f "$STARTING_LOCKFILE" ]]; then
-        echo "bootstraping"
+        set +e
+        processes=$(ps aux | grep 'overline_gpu_miner start' | grep -v grep | grep start)
+        if [ ! "$processes" ]; then
+            rm "$STARTING_LOCKFILE"
+            echo "not_running"
+        else
+            echo "bootstraping"
+        fi
     elif [[ -f "$RELOAD_LOCKFILE" ]]; then
-        echo "reloading"
+        set +e
+        processes=$(ps aux | grep 'overline_gpu_miner reload' | grep -v grep | grep reload)
+        if [ ! "$processes" ]; then
+            rm "$RELOAD_LOCKFILE"
+            echo "not_running"
+        else
+            echo "reloading"
+        fi
     elif [[ $(docker ps | grep bcnode) ]]; then
         echo "running"
     else
