@@ -71,7 +71,7 @@ function build_docker_images {
 
         # this is actually the digest
         bcnode_image_digest=$(docker images --digests --format "{{.Digest}}" blockcollider/bcnode | sed 's/:/-/')
-        echo -e "${GREEN}Building new image with bcnode sha: $bcnode_image_id ${NC}"
+        echo -e "${GREEN}Building new image with bcnode sha: $bcnode_image_digest ${NC}"
         docker build -t $LOCAL_BCNODE_IMAGE_NAME -f Dockerfile.bcnode --build-arg BC_NODE_IMAGE_DIGEST=$bcnode_image_digest .
 
         docker rmi blockcollider/bcnode:latest
