@@ -55,7 +55,11 @@ function clone_gpu_miner_repo {
         git clone https://github.com/goblueping/gpu-miner.git
     else
         echo -e "${GREEN}Pulling the latest repo ${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME} ...${NC}"
-        cd ${GPU_MINER_REPO_NAME}; git checkout . || git checkout main || git pull origin main
+        cd ${GPU_MINER_REPO_NAME};
+        git checkout .
+        git clean -fd
+        git checkout main
+        git pull origin main
     fi
 }
 
