@@ -52,7 +52,7 @@ function clone_gpu_miner_repo {
     cd $BOOTSTRAP_DIR
     if [ ! -d "${GPU_MINER_REPO_NAME}" ]; then
         echo -e "${GREEN}Cloning ${GPU_MINER_REPO_NAME} repo to ${BOOTSTRAP_DIR} ...${NC}"
-        git clone --depth 1 https://github.com/goblueping/gpu-miner.git
+        git clone https://github.com/goblueping/gpu-miner.git
     else
         echo -e "${GREEN}Pulling the latest repo ${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME} ...${NC}"
         cd ${GPU_MINER_REPO_NAME}; git checkout . || git checkout main || git pull origin main
