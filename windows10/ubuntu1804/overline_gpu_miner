@@ -42,7 +42,8 @@ function install_docker {
     else
         echo -e "${GREEN}Installing docker ...${NC}"
         curl https://get.docker.com | sh
-        service docker stop || service docker start
+        echo -e "${GREEN}Starting docker ...${NC}"
+        service docker start
         sleep 3 # this ensure the docker is up
         usermod -aG docker $USER
     fi
