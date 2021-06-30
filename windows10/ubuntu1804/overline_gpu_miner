@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-# TODO: add a command to launch proxy server
 set -e
 
 NC='\033[0m'
@@ -21,6 +20,7 @@ BOOTSTRAP_LOG_FILE="$BOOTSTRAP_DIR/overline_bootstrap.log"
 BC_MINER_KEY_LOCATION="$BOOTSTRAP_DIR/bc_miner_key"
 DB_IMPORTED_FLAG="$BOOTSTRAP_DIR/db_imported_flag.lock"
 DB_SNAPSHOT_LOCATTION="/tmp/_easysync_db.zip"
+DB_SNAPSHOT_DOWNLOAD_PROGRESS="/tmp/db_snapshot_download_progress.txt" # dont change it
 DB_SNAPSHOT_URI="https://community.multichains.org/_easysync_db.zip"
 
 mkdir -p $BOOTSTRAP_DIR
@@ -193,8 +193,11 @@ function load_new_snapshot() {
     if [[ -f "$DB_SNAPSHOT_LOCATTION" ]]; then
         echo -e "${GREEN}${DB_SNAPSHOT_LOCATTION} was already downloaded. Reusing it...${NC}"
     else
-        echo "Downloading new snapshot. It may take 45 minutes to 2 hours depending on connection speed."
-        time wget ${DB_SNAPSHOT_URI} -O ${DB_SNAPSHOT_LOCATTION}
+        echo "Downloading new snapshot. It may take 45 minutes to 2 hours depending on connection speed" # dont change the echo words, it is used in proxy.py
+        time wget ${DB_SNAPSHOT_URI} -O ${DB_SNAPSHOT_LOCATTION} -o {$DB_SNAPSHOT_DOWNLOAD_PROGRESS}
+        set +e
+        rm ${DB_SNAPSHOT_DOWNLOAD_PROGRESS}
+        set -e
     fi
     if [[ -f "$DB_IMPORTED_FLAG" ]]; then
         echo -e "${GREEN}${DB_SNAPSHOT_LOCATTION} was already imported. Skipping ...${NC}"

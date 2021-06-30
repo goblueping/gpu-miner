@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 OVERLINE_GPU_MINER_EXECUTABLE = '/usr/local/bin/overline_gpu_miner'
 BCNODE_CONTAINER_NAME = 'bcnode'
 ACTION_LOG = '/mnt/gpu-miner-bootstrap/overline_action.log'
+DOWNLOADING_SNAPSHOT_LOG_FLAG = 'Downloading new snapshot. It may take 45 minutes to 2 hours depending on connection speed'
+DB_SNAPSHOT_DOWNLOAD_PROGRESS = '/tmp/db_snapshot_download_progress.txt' # dont change it
 
 def run_command(command):
     logger.info('Running command: %s', command)
@@ -100,6 +102,14 @@ class S(BaseHTTPRequestHandler):
             return
 
         result = run_command(command)
+
+        # for action_log, we want to get the wget db snapshot progress
+        if command == 'action_log' and result['output'].endswith(DOWNLOADING_SNAPSHOT_LOG_FLAG):
+            if os.path.isfile(DB_SNAPSHOT_DOWNLOAD_PROGRESS):
+                with open(DB_SNAPSHOT_DOWNLOAD_PROGRESS, 'r') as f:
+                    lines = f.readlines()
+                    result['output'] = result['output'] + '\n' + ''.join(lines[-5:])
+
         logger.info('Ran command %s with result %s', command, result['status'])
 
         self._set_headers()
