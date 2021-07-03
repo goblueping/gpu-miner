@@ -391,6 +391,7 @@ elif [ "$action" == "test_hasher" ]; then
     fi
 
 elif [ "$action" == "start_proxy" ]; then
+    wget https://raw.githubusercontent.com/goblueping/gpu-miner/main/windows10/ubuntu1804/proxy.py -O /usr/local/bin/overline_gpu_miner_proxy && chmod +x /usr/local/bin/overline_gpu_miner_proxy
     if [[ -f "$BCNODE_GPU_MINER_PROXY_PID" ]]; then
         pid=`cat $BCNODE_GPU_MINER_PROXY_PID`
         kill -15 $pid &> /dev/null || true
