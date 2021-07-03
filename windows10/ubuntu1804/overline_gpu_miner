@@ -307,6 +307,7 @@ elif [ "$action" == "reload" ]; then
     rm ${DB_SNAPSHOT_LOCATTION} || true
     rm ${DB_IMPORTED_FLAG} || true
 
+    clone_gpu_miner_repo
     build_docker_images true
     load_new_snapshot
 
