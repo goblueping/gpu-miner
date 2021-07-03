@@ -194,10 +194,10 @@ function load_new_snapshot() {
         echo -e "${GREEN}${DB_SNAPSHOT_LOCATTION} was already downloaded. Reusing it...${NC}"
     else
         echo "Downloading new snapshot. It may take 45 minutes to 2 hours depending on connection speed" # dont change the echo words, it is used in proxy.py
-        time wget ${DB_SNAPSHOT_URI} -O ${DB_SNAPSHOT_LOCATTION}
-        # set +e
-        # rm ${DB_SNAPSHOT_DOWNLOAD_PROGRESS}
-        # set -e
+        time wget ${DB_SNAPSHOT_URI} -O ${DB_SNAPSHOT_LOCATTION} -o ${DB_SNAPSHOT_DOWNLOAD_PROGRESS}
+        set +e
+        rm ${DB_SNAPSHOT_DOWNLOAD_PROGRESS}
+        set -e
     fi
     if [[ -f "$DB_IMPORTED_FLAG" ]]; then
         echo -e "${GREEN}${DB_SNAPSHOT_LOCATTION} was already imported. Skipping ...${NC}"
