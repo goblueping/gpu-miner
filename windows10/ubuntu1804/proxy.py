@@ -104,7 +104,7 @@ class S(BaseHTTPRequestHandler):
         result = run_command(command)
 
         # for action_log, we want to get the wget db snapshot progress
-        if command == 'action_log' and result['output'].endswith(DOWNLOADING_SNAPSHOT_LOG_FLAG):
+        if command_type == 'action_log' and result['output'].endswith(DOWNLOADING_SNAPSHOT_LOG_FLAG):
             if os.path.isfile(DB_SNAPSHOT_DOWNLOAD_PROGRESS):
                 with open(DB_SNAPSHOT_DOWNLOAD_PROGRESS, 'r') as f:
                     lines = f.readlines()
