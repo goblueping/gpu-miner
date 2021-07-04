@@ -2,11 +2,6 @@
 
 set -e
 
-NC='\033[0m'
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-
 BOOTSTRAP_DIR="/mnt/gpu-miner-bootstrap/"
 GPU_MINER_REPO_NAME="gpu-miner"
 UBUNTU1804_DIR="${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME}/windows10/ubuntu1804"
@@ -36,7 +31,7 @@ mkdir -p $BOOTSTRAP_DIR
 function ensure_docker_daemon_running() {
     if [[ $(which docker) && $(docker --version) ]]; then
         if (! docker stats --no-stream &> /dev/null); then
-            echo_with_time "${GREEN}Docker is not running, starting it...${NC}"
+            echo_with_time "Docker is not running, starting it..."
             service docker start
             sleep 3 # this ensure the docker is up
         fi
@@ -45,12 +40,12 @@ function ensure_docker_daemon_running() {
 
 function install_docker {
     if [[ $(which docker) && $(docker --version) ]]; then
-        echo_with_time "${GREEN}docker is already installed${NC}"
+        echo_with_time "docker is already installed"
         ensure_docker_daemon_running
     else
-        echo_with_time "${GREEN}Installing docker ...${NC}"
+        echo_with_time "Installing docker ..."
         curl https://get.docker.com | sh
-        echo_with_time "${GREEN}Starting docker ...${NC}"
+        echo_with_time "Starting docker ..."
         service docker start
         sleep 3 # this ensure the docker is up
         usermod -aG docker $USER
@@ -60,10 +55,10 @@ function install_docker {
 function clone_gpu_miner_repo {
     cd $BOOTSTRAP_DIR
     if [ ! -d "${GPU_MINER_REPO_NAME}" ]; then
-        echo_with_time "${GREEN}Cloning ${GPU_MINER_REPO_NAME} repo to ${BOOTSTRAP_DIR} ...${NC}"
+        echo_with_time "Cloning ${GPU_MINER_REPO_NAME} repo to ${BOOTSTRAP_DIR} ..."
         git clone https://github.com/goblueping/gpu-miner.git
     else
-        echo_with_time "${GREEN}Pulling the latest repo ${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME} ...${NC}"
+        echo_with_time "Pulling the latest repo ${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME} ..."
         cd ${GPU_MINER_REPO_NAME};
         git checkout .
         git clean -fd
@@ -76,40 +71,40 @@ function build_docker_images {
     force=$1
     if [[ -z "$(docker images -q ${BCNODE_IMAGE})" ]] || [[ "$force" == "true" ]]; then
         docker rmi ${BCNODE_IMAGE} &> /dev/null || true
-        echo_with_time "${GREEN}Building docker images ...${NC}"
+        echo_with_time "Building docker images ..."
         cd ${UBUNTU1804_DIR}/bcnode_gpu_docker/
 
-        echo_with_time "${GREEN}Pulling latest upstream image...${NC}"
+        echo_with_time "Pulling latest upstream image..."
         docker pull blockcollider/bcnode:latest
 
         # this is actually the digest
         bcnode_image_digest=$(docker images --digests --format "{{.Digest}}" blockcollider/bcnode | sed 's/:/-/')
-        echo_with_time "${GREEN}Building new image with bcnode sha: $bcnode_image_digest ${NC}"
+        echo_with_time "Building new image with bcnode sha: $bcnode_image_digest "
         docker build -t $LOCAL_BCNODE_IMAGE_NAME -f Dockerfile.bcnode --build-arg BC_NODE_IMAGE_DIGEST=$bcnode_image_digest .
 
         docker rmi blockcollider/bcnode:latest
 
-        echo_with_time "${GREEN}Showing all locally available Docker images:${NC}"
+        echo_with_time "Showing all locally available Docker images:"
         docker images
 
-        echo_with_time "${GREEN}Done.${NC}"
+        echo_with_time "Done."
     else
-        echo_with_time "${GREEN}Reuse ${BCNODE_IMAGE}...${NC}"
+        echo_with_time "Reuse ${BCNODE_IMAGE}..."
     fi
 }
 
 
 function install_cuda {
     if [ -z "$(dpkg --list | grep cuda-toolkit-11-0)" ]; then
-        echo_with_time "${GREEN}Installing cuda-toolkit-11-0 ...${NC}"
+        echo_with_time "Installing cuda-toolkit-11-0 ..."
         apt-get update && apt-get install -y gnupg
         apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
         sh -c 'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
         apt-get update
-        echo_with_time "${GREEN}Installing cuda-toolkit ...${NC}"
+        echo_with_time "Installing cuda-toolkit ..."
         DEBIAN_FRONTEND=noninteractive apt-get install -y cuda-toolkit-11-0 unzip wget curl jq
     else
-        echo_with_time "${GREEN}cuda-toolkit-11-0 is already installed ...${NC}"
+        echo_with_time "cuda-toolkit-11-0 is already installed ..."
     fi
 }
 
@@ -199,7 +194,7 @@ function clone_gpu_docker_repo {
 function load_new_snapshot() {
     cd ${UBUNTU1804_DIR}
     if [[ -f "$DB_SNAPSHOT_LOCATTION" ]]; then
-        echo_with_time "${GREEN}${DB_SNAPSHOT_LOCATTION} was already downloaded. Reusing it...${NC}"
+        echo_with_time "${DB_SNAPSHOT_LOCATTION} was already downloaded. Reusing it..."
     else
         echo "Downloading new snapshot. It may take 45 minutes to 2 hours depending on connection speed" # dont change the echo words, it is used in proxy.py
         time wget ${DB_SNAPSHOT_URI} -O ${DB_SNAPSHOT_LOCATTION} -o ${DB_SNAPSHOT_DOWNLOAD_PROGRESS}
@@ -208,9 +203,9 @@ function load_new_snapshot() {
         set -e
     fi
     if [[ -f "$DB_IMPORTED_FLAG" ]]; then
-        echo_with_time "${GREEN}${DB_SNAPSHOT_LOCATTION} was already imported. Skipping ...${NC}"
+        echo_with_time "${DB_SNAPSHOT_LOCATTION} was already imported. Skipping ..."
     else
-        echo_with_time "{GREEN} Loading the snapshot. It may take around 30 minutes ${NC}"
+        echo_with_time "{GREEN} Loading the snapshot. It may take around 30 minutes "
         time echo "yy" | ./import-db.sh ${DB_SNAPSHOT_LOCATTION}
         touch $DB_IMPORTED_FLAG
     fi
@@ -218,12 +213,12 @@ function load_new_snapshot() {
 
 function stop_miner() {
     if [[ -f "$BCNODE_GPU_MINER_PID" ]]; then
-        echo_with_time "${GREEN}Killing bcnode_gpu_miner with pid: $pid...${NC}"
+        echo_with_time "Killing bcnode_gpu_miner with pid: $pid..."
         pid=`cat $BCNODE_GPU_MINER_PID`
         kill -15 $pid &> /dev/null || true
         rm $BCNODE_GPU_MINER_PID || true
     fi
-    echo_with_time "${GREEN}Killing containers if running, cleaning up...${NC}"
+    echo_with_time "Killing containers if running, cleaning up..."
     docker rm -f ${BCNODE_CONTAINER_NAME} || true
 }
 
@@ -247,7 +242,7 @@ function start_to_mine {
     tail -n 10 ${BCNODE_GPU_MINER_OUT}
 
 
-    echo_with_time "${GREEN}Starting bcnode container with miner key ${MINER_KEY}...${NC}"
+    echo_with_time "Starting bcnode container with miner key ${MINER_KEY}..."
     docker run -d --restart=unless-stopped --name ${BCNODE_CONTAINER_NAME} \
            --memory-reservation="6900m" \
            --env-file ./config \
@@ -256,11 +251,11 @@ function start_to_mine {
            ${BCNODE_IMAGE} \
            start --rovers --rpc --ws --ui --node --scookie "${BC_SCOOKIE}" 2>&1
 
-    echo_with_time "${GREEN}Done.${NC}"
+    echo_with_time "Done."
     if [[ ${BC_TUNNEL_HTTPS:-false} == true ]]; then
-      echo_with_time "${GREEN}Waiting for ngrok tunnel to be up..."
+      echo_with_time "Waiting for ngrok tunnel to be up..."
       sleep 5 # a loop would be more suitable here
-      echo_with_time "Your personal HTTPS ngrok address is:${NC}"
+      echo_with_time "Your personal HTTPS ngrok address is:"
       curl -s --basic --user ":${BC_SCOOKIE}" -H "content-type: application/json" -H 'accept: application/json' -d '{ "jsonrpc": "2.0", "id": 123, "method": "getSettings", "params": [] }' http://localhost:3000/rpc | jq  --raw-output '.result.ngrokTunnel'
     fi
 
@@ -281,7 +276,7 @@ if [ "$action" == "start" ]; then
     touch $LOCKFILE
     trap '{ rm -f -- "$LOCKFILE"; }' EXIT
 
-    echo_with_time "${GREEN}Checking system requirement${NC}"
+    echo_with_time "Checking system requirement"
 
     ensure_disk_size
 
