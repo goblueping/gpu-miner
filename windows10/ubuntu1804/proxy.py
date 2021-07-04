@@ -76,6 +76,13 @@ class S(BaseHTTPRequestHandler):
             self._set_headers(400)
             self.wfile.write(self.to_json_binary({'error': 'command is required in the body'}))
             return
+
+        if command_type == 'health':
+            result = {'status': 'success', 'output': 'ok'}
+            self._set_headers()
+            self.wfile.write(self.to_json_binary(result))
+            return
+
         if command_type == 'my_ip':
             ip = get_ip_address()
             result = {'status': 'success', 'output': ip}
