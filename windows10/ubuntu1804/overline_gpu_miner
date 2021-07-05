@@ -216,11 +216,11 @@ function stop_miner() {
     if [[ -f "$BCNODE_GPU_MINER_PID" ]]; then
         echo_with_time "Killing bcnode_gpu_miner with pid: $pid..."
         pid=`cat $BCNODE_GPU_MINER_PID`
-        kill -15 $pid &> /dev/null
-        rm $BCNODE_GPU_MINER_PID
+        kill -15 $pid &> /dev/null || true
+        rm $BCNODE_GPU_MINER_PID || true
     fi
     echo_with_time "Killing containers if running, cleaning up..."
-    docker rm -f ${BCNODE_CONTAINER_NAME}
+    docker rm -f ${BCNODE_CONTAINER_NAME} || true
     set -e
 }
 
