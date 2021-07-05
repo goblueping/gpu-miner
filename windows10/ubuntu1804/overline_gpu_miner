@@ -212,14 +212,16 @@ function load_new_snapshot() {
 }
 
 function stop_miner() {
+    set +e
     if [[ -f "$BCNODE_GPU_MINER_PID" ]]; then
         echo_with_time "Killing bcnode_gpu_miner with pid: $pid..."
         pid=`cat $BCNODE_GPU_MINER_PID`
-        kill -15 $pid &> /dev/null || true
-        rm $BCNODE_GPU_MINER_PID || true
+        kill -15 $pid &> /dev/null
+        rm $BCNODE_GPU_MINER_PID
     fi
     echo_with_time "Killing containers if running, cleaning up..."
-    docker rm -f ${BCNODE_CONTAINER_NAME} || true
+    docker rm -f ${BCNODE_CONTAINER_NAME}
+    set -e
 }
 
 function start_to_mine {
@@ -277,6 +279,8 @@ if [ "$action" == "start" ]; then
     trap '{ rm -f -- "$LOCKFILE"; }' EXIT
 
     echo_with_time "Checking system requirement"
+
+    stop_miner
 
     ensure_disk_size
 
