@@ -11,9 +11,12 @@ BCNODE_CONTAINER_NAME="bcnode"
 LOCAL_BCNODE_IMAGE_NAME="local/bcnode"
 BCNODE_IMAGE="$LOCAL_BCNODE_IMAGE_NAME:latest"
 BCNODE_GPU_MINER_OUT="/tmp/bcnode_gpu_miner.out"
+
 BOOTSTRAP_LOG_FILE="$BOOTSTRAP_DIR/overline_bootstrap.log"
 BC_MINER_KEY_LOCATION="$BOOTSTRAP_DIR/bc_miner_key"
 DB_IMPORTED_FLAG="$BOOTSTRAP_DIR/db_imported_flag.lock"
+CUSTOMIZED_CONFIG="$BOOTSTRAP_DIR/customized_config"
+
 DB_SNAPSHOT_LOCATTION="/tmp/_easysync_db.zip"
 DB_SNAPSHOT_DOWNLOAD_PROGRESS="/tmp/db_snapshot_download_progress.txt" # dont change it
 DB_SNAPSHOT_URI="https://community.multichains.org/_easysync_db.zip"
@@ -237,6 +240,11 @@ function start_to_mine {
     sed -i "s/BC_MINER_KEY=.*/BC_MINER_KEY=$BC_MINER_KEY/g" config
 
     . ./config
+
+    if [[ -f "$CUSTOMIZED_CONFIG" ]]; then
+        echo_with_time "Loading CUSTOMIZED_CONFIG: ${CUSTOMIZED_CONFIG}"
+        . ${CUSTOMIZED_CONFIG}
+    fi
 
     nohup ${UBUNTU1804_DIR}/releases/bcnode_gpu_miner &> ${BCNODE_GPU_MINER_OUT} &
     echo $! > ${BCNODE_GPU_MINER_PID}
