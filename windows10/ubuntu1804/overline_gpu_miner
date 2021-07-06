@@ -16,6 +16,7 @@ BOOTSTRAP_LOG_FILE="$BOOTSTRAP_DIR/overline_bootstrap.log"
 BC_MINER_KEY_LOCATION="$BOOTSTRAP_DIR/bc_miner_key"
 DB_IMPORTED_FLAG="$BOOTSTRAP_DIR/db_imported_flag.lock"
 CUSTOMIZED_CONFIG="$BOOTSTRAP_DIR/customized_config"
+DOCKER_ENV_FILE="$BOOTSTRAP_DIR/final_bcnode_config"
 
 DB_SNAPSHOT_LOCATTION="/tmp/_easysync_db.zip"
 DB_SNAPSHOT_DOWNLOAD_PROGRESS="/tmp/db_snapshot_download_progress.txt" # dont change it
@@ -237,14 +238,17 @@ function start_to_mine {
     export PATH=${PATH}:${CUDA_HOME}/bin
 
 
-    sed -i "s/BC_MINER_KEY=.*/BC_MINER_KEY=$BC_MINER_KEY/g" config
+    # populate docker env file
+    cp ./config $DOCKER_ENV_FILE
 
-    . ./config
+    sed -i "s/BC_MINER_KEY=.*/BC_MINER_KEY=$BC_MINER_KEY/g" $DOCKER_ENV_FILE
 
     if [[ -f "$CUSTOMIZED_CONFIG" ]]; then
         echo_with_time "Loading CUSTOMIZED_CONFIG: ${CUSTOMIZED_CONFIG}"
-        . ${CUSTOMIZED_CONFIG}
+        cat ${CUSTOMIZED_CONFIG} >> $DOCKER_ENV_FILE
     fi
+
+    . ${DOCKER_ENV_FILE}
 
     nohup ${UBUNTU1804_DIR}/releases/bcnode_gpu_miner &> ${BCNODE_GPU_MINER_OUT} &
     echo $! > ${BCNODE_GPU_MINER_PID}
@@ -255,7 +259,7 @@ function start_to_mine {
     echo_with_time "Starting bcnode container with miner key ${MINER_KEY}..."
     docker run -d --restart=unless-stopped --name ${BCNODE_CONTAINER_NAME} \
            --memory-reservation="6900m" \
-           --env-file ./config \
+           --env-file ${DOCKER_ENV_FILE} \
            --network host \
            --mount source=db,target=/bc/_data \
            ${BCNODE_IMAGE} \
