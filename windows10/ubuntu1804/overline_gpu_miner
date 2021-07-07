@@ -149,6 +149,7 @@ fi
 LOCKFILE="$BOOTSTRAP_DIR/$action.lock"
 STARTING_LOCKFILE="$BOOTSTRAP_DIR/start.lock"
 RELOAD_LOCKFILE="$BOOTSTRAP_DIR/reload.lock"
+TEST_HASHER_LOCKFILE="$BOOTSTRAP_DIR/test_hasher.lock"
 
 # has to run under root
 
@@ -369,6 +370,15 @@ elif [ "$action" == "status" ]; then
             echo "not_running"
         else
             echo "reloading"
+        fi
+    elif [[ -f "$TEST_HASHER_LOCKFILE" ]]; then
+        set +e
+        processes=$(ps aux | grep 'overline_gpu_miner test_hasher' | grep -v grep)
+        if [ ! "$processes" ]; then
+            rm "$TEST_HASHER_LOCKFILE"
+            echo "not_running"
+        else
+            echo "testing_hasher"
         fi
     elif [[ $(docker ps | grep bcnode) ]]; then
         echo "running"
