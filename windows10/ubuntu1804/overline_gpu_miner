@@ -380,8 +380,12 @@ elif [ "$action" == "status" ]; then
         else
             echo "testing_hasher"
         fi
-    elif [[ $(docker ps | grep bcnode) ]]; then
-        echo "running"
+    elif [[ $(which docker) && $(docker --version) ]]; then
+        if [[ $(docker ps | grep bcnode) ]]; then
+            echo "running"
+        else
+            echo "not_running"
+        fi
     else
         echo "not_running"
     fi
