@@ -127,6 +127,7 @@ function echo_help {
     echo "  reload               Reload snapshot and start to mine"
     echo "  stop                 Stop the miner"
     echo "  start_proxy          Start proxy server"
+    echo "  test_hasher          Test if a GPU hasher process can start"
 }
 
 if [ -z "$BC_MINER_KEY" ]; then
