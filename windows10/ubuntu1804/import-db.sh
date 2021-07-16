@@ -30,7 +30,7 @@ then
 fi
 
 if [ -f "./overline_gpu_miner" ]; then
-    ./overline_gpu_miner clean
+    ./overline_gpu_miner stop
 else
   echo -e "Stopping current ${bcnode_container_name} container if running..."
   docker rm -f ${bcnode_container_name} > /dev/null 2>&1 || true
