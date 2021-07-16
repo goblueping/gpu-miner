@@ -71,17 +71,26 @@ function clone_gpu_miner_repo {
     fi
 }
 
+function get_local_bcnode_docker_image_digest() {
+    docker images  --format "{{.Tag}} {{.Digest}}" ${BCNODE_IMAGE_NAME} | grep latest | cut -d' ' -f2
+}
+
 function build_docker_images {
     force=$1
     if [[ -z "$(docker images -q ${BCNODE_IMAGE})" ]] || [[ "$force" == "true" ]]; then
-        docker rmi ${BCNODE_IMAGE} &> /dev/null || true
+        remote_digest=$(curl -s https://hub.docker.com/v2/repositories/blockcollider/bcnode/tags/latest/images | jq -r .[0].digest)
+        local_digest=$(get_local_bcnode_docker_image_digest)
+        if [[ "${remote_digest}" != "${local_digest}" ]]; then
+            echo "remote digest is: $remote_digest does not equal to local digest: $local_digest, pulling new one"
+            docker rmi ${BCNODE_IMAGE} &> /dev/null || true
 
-        echo_with_time "Pulling latest upstream image..."
-        docker pull ${BCNODE_IMAGE}
+            echo_with_time "Pulling latest upstream image..."
+            docker pull ${BCNODE_IMAGE}
 
-        docker images
+            docker images
 
-        echo_with_time "Done."
+            echo_with_time "Done."
+        fi
     else
         echo_with_time "Reuse ${BCNODE_IMAGE}..."
     fi
@@ -415,7 +424,7 @@ elif [ "$action" == "test_hasher" ]; then
         exit 1
     fi
 elif [ "$action" == "docker_image_digest" ]; then
-    docker images  --format "{{.Tag}} {{.Digest}}" blockcollider/bcnode | grep latest | cut -d' ' -f2
+    get_local_bcnode_docker_image_digest
 elif [ "$action" == "start_proxy" ]; then
     wget https://raw.githubusercontent.com/goblueping/gpu-miner/main/windows10/ubuntu1804/proxy.py -O /usr/local/bin/overline_gpu_miner_proxy && chmod +x /usr/local/bin/overline_gpu_miner_proxy
     if [[ -f "$BCNODE_GPU_MINER_PROXY_PID" ]]; then
