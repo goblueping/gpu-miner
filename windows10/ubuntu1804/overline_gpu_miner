@@ -79,7 +79,7 @@ function get_local_bcnode_docker_image_digest() {
 function build_docker_images {
     force=$1
     if [[ -z "$(docker images -q ${BCNODE_IMAGE})" ]] || [[ "$force" == "true" ]]; then
-        remote_digest=$(curl -s https://hub.docker.com/v2/repositories/blockcollider/bcnode/tags/latest/images | jq -r .[0].digest)
+        remote_digest=$(curl -s https://hub.docker.com/v2/repositories/${BCNODE_IMAGE_NAME}/tags/${BCNODE_IMAGE_TAG}/images | jq -r .[0].digest)
         local_digest=$(get_local_bcnode_docker_image_digest)
         if [[ "${remote_digest}" != "${local_digest}" ]]; then
             echo "remote digest is: $remote_digest does not equal to local digest: $local_digest, pulling new one"
