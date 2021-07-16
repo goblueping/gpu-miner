@@ -9,7 +9,8 @@ BCNODE_GPU_MINER_PID="/var/run/bcnode_gpu_miner.pid"
 BCNODE_GPU_MINER_PROXY_PID="/var/run/bcnode_gpu_miner_proxy.pid"
 BCNODE_CONTAINER_NAME="bcnode"
 BCNODE_IMAGE_NAME="blockcollider/bcnode"
-BCNODE_IMAGE="${BCNODE_IMAGE_NAME}:latest"
+BCNODE_IMAGE_TAG="latest"
+BCNODE_IMAGE="${BCNODE_IMAGE_NAME}:${BCNODE_IMAGE_TAG}"
 BCNODE_GPU_MINER_OUT="/tmp/bcnode_gpu_miner.out"
 
 BOOTSTRAP_LOG_FILE="$BOOTSTRAP_DIR/overline_bootstrap.log"
@@ -72,7 +73,7 @@ function clone_gpu_miner_repo {
 }
 
 function get_local_bcnode_docker_image_digest() {
-    docker images  --format "{{.Tag}} {{.Digest}}" ${BCNODE_IMAGE_NAME} | grep latest | cut -d' ' -f2
+    docker images  --format "{{.Tag}} {{.Digest}}" ${BCNODE_IMAGE_NAME} | grep ${BCNODE_IMAGE_TAG} | cut -d' ' -f2
 }
 
 function build_docker_images {
