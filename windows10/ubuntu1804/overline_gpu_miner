@@ -8,8 +8,8 @@ UBUNTU1804_DIR="${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME}/windows10/ubuntu1804"
 BCNODE_GPU_MINER_PID="/var/run/bcnode_gpu_miner.pid"
 BCNODE_GPU_MINER_PROXY_PID="/var/run/bcnode_gpu_miner_proxy.pid"
 BCNODE_CONTAINER_NAME="bcnode"
-LOCAL_BCNODE_IMAGE_NAME="local/bcnode"
-BCNODE_IMAGE="$LOCAL_BCNODE_IMAGE_NAME:latest"
+BCNODE_IMAGE_NAME="blockcollider/bcnode"
+BCNODE_IMAGE="${BCNODE_IMAGE_NAME}:latest"
 BCNODE_GPU_MINER_OUT="/tmp/bcnode_gpu_miner.out"
 
 BOOTSTRAP_LOG_FILE="$BOOTSTRAP_DIR/overline_bootstrap.log"
@@ -75,20 +75,10 @@ function build_docker_images {
     force=$1
     if [[ -z "$(docker images -q ${BCNODE_IMAGE})" ]] || [[ "$force" == "true" ]]; then
         docker rmi ${BCNODE_IMAGE} &> /dev/null || true
-        echo_with_time "Building docker images ..."
-        cd ${UBUNTU1804_DIR}/bcnode_gpu_docker/
 
         echo_with_time "Pulling latest upstream image..."
-        docker pull blockcollider/bcnode:latest
+        docker pull ${BCNODE_IMAGE}
 
-        # this is actually the digest
-        bcnode_image_digest=$(docker images --digests --format "{{.Digest}}" blockcollider/bcnode | sed 's/:/-/')
-        echo_with_time "Building new image with bcnode sha: $bcnode_image_digest "
-        docker build -t $LOCAL_BCNODE_IMAGE_NAME -f Dockerfile.bcnode --build-arg BC_NODE_IMAGE_DIGEST=$bcnode_image_digest .
-
-        docker rmi blockcollider/bcnode:latest
-
-        echo_with_time "Showing all locally available Docker images:"
         docker images
 
         echo_with_time "Done."
@@ -128,6 +118,7 @@ function echo_help {
     echo "  stop                 Stop the miner"
     echo "  start_proxy          Start proxy server"
     echo "  test_hasher          Test if a GPU hasher process can start"
+    echo "  docker_image_digest  Output bcnode docker image digest"
 }
 
 if [ -z "$BC_MINER_KEY" ]; then
@@ -423,7 +414,8 @@ elif [ "$action" == "test_hasher" ]; then
         echo "failed"
         exit 1
     fi
-
+elif [ "$action" == "docker_image_digest" ]; then
+    docker images  --format "{{.Tag}} {{.Digest}}" blockcollider/bcnode | grep latest | cut -d' ' -f2
 elif [ "$action" == "start_proxy" ]; then
     wget https://raw.githubusercontent.com/goblueping/gpu-miner/main/windows10/ubuntu1804/proxy.py -O /usr/local/bin/overline_gpu_miner_proxy && chmod +x /usr/local/bin/overline_gpu_miner_proxy
     if [[ -f "$BCNODE_GPU_MINER_PROXY_PID" ]]; then
