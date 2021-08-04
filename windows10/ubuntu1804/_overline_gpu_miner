@@ -1,0 +1,445 @@
+#!/usr/bin/env bash
+
+set -e
+
+BOOTSTRAP_DIR="/mnt/gpu-miner-bootstrap/"
+GPU_MINER_REPO_NAME="gpu-miner"
+UBUNTU1804_DIR="${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME}/windows10/ubuntu1804"
+BCNODE_GPU_MINER_PID="/var/run/bcnode_gpu_miner.pid"
+BCNODE_GPU_MINER_PROXY_PID="/var/run/bcnode_gpu_miner_proxy.pid"
+BCNODE_CONTAINER_NAME="bcnode"
+BCNODE_IMAGE_NAME="blockcollider/bcnode"
+BCNODE_IMAGE_TAG="latest"
+BCNODE_IMAGE="${BCNODE_IMAGE_NAME}:${BCNODE_IMAGE_TAG}"
+BCNODE_GPU_MINER_OUT="/tmp/bcnode_gpu_miner.out"
+
+BOOTSTRAP_LOG_FILE="$BOOTSTRAP_DIR/overline_bootstrap.log"
+BC_MINER_KEY_LOCATION="$BOOTSTRAP_DIR/bc_miner_key"
+DB_IMPORTED_FLAG="$BOOTSTRAP_DIR/db_imported_flag.lock"
+CUSTOMIZED_CONFIG="$BOOTSTRAP_DIR/customized_config"
+DOCKER_ENV_FILE="$BOOTSTRAP_DIR/final_bcnode_config"
+
+DB_SNAPSHOT_LOCATTION="/tmp/_easysync_db.zip"
+DB_SNAPSHOT_DOWNLOAD_PROGRESS="/tmp/db_snapshot_download_progress.txt" # dont change it
+DB_SNAPSHOT_URI="https://community.multichains.org/_easysync_db.zip"
+
+function timestamp() {
+ date +"%Y-%m-%d %H:%M:%S"
+}
+
+function echo_with_time() {
+    echo -e "$(timestamp) $@"
+}
+
+mkdir -p $BOOTSTRAP_DIR
+
+function ensure_docker_daemon_running() {
+    if [[ $(which docker) && $(docker --version) ]]; then
+        if (! docker stats --no-stream &> /dev/null); then
+            echo_with_time "Docker is not running, starting it..."
+            service docker start
+            sleep 3 # this ensure the docker is up
+        fi
+    fi
+}
+
+function install_docker {
+    if [[ $(which docker) && $(docker --version) ]]; then
+        echo_with_time "docker is already installed"
+        ensure_docker_daemon_running
+    else
+        echo_with_time "Installing docker ..."
+        curl https://get.docker.com | sh
+        echo_with_time "Starting docker ..."
+        service docker start
+        sleep 3 # this ensure the docker is up
+        usermod -aG docker $USER
+    fi
+}
+
+function clone_gpu_miner_repo {
+    cd $BOOTSTRAP_DIR
+    if [ ! -d "${GPU_MINER_REPO_NAME}" ]; then
+        echo_with_time "Cloning ${GPU_MINER_REPO_NAME} repo to ${BOOTSTRAP_DIR} ..."
+        git clone https://github.com/goblueping/gpu-miner.git
+    else
+        echo_with_time "Pulling the latest repo ${BOOTSTRAP_DIR}/${GPU_MINER_REPO_NAME} ..."
+        cd ${GPU_MINER_REPO_NAME};
+        git checkout .
+        git clean -fd
+        git checkout main
+        git pull origin main
+    fi
+}
+
+function get_local_bcnode_docker_image_digest() {
+    docker images  --format "{{.Tag}} {{.Digest}}" ${BCNODE_IMAGE_NAME} | grep ${BCNODE_IMAGE_TAG} | cut -d' ' -f2
+}
+
+function build_docker_images {
+    force=$1
+    if [[ -z "$(docker images -q ${BCNODE_IMAGE})" ]] || [[ "$force" == "true" ]]; then
+        remote_digest=$(curl -s https://hub.docker.com/v2/repositories/${BCNODE_IMAGE_NAME}/tags/${BCNODE_IMAGE_TAG}/images | jq -r .[0].digest)
+        local_digest=$(get_local_bcnode_docker_image_digest)
+        if [[ "${remote_digest}" != "${local_digest}" ]]; then
+            echo "remote digest is: $remote_digest does not equal to local digest: $local_digest, pulling new one"
+            docker rmi ${BCNODE_IMAGE} &> /dev/null || true
+
+            echo_with_time "Pulling latest upstream image..."
+            docker pull ${BCNODE_IMAGE}
+
+            docker images
+
+            echo_with_time "Done."
+        fi
+    else
+        echo_with_time "Reuse ${BCNODE_IMAGE}..."
+    fi
+}
+
+
+function install_cuda {
+    if [ -z "$(dpkg --list | grep cuda-toolkit-11-0)" ]; then
+        echo_with_time "Installing cuda-toolkit-11-0 ..."
+        apt-get update && apt-get install -y gnupg
+        apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+        sh -c 'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
+        apt-get update
+        echo_with_time "Installing cuda-toolkit ..."
+        DEBIAN_FRONTEND=noninteractive apt-get install -y cuda-toolkit-11-0 unzip wget curl jq
+    else
+        echo_with_time "cuda-toolkit-11-0 is already installed ..."
+    fi
+}
+
+action=$1
+BC_MINER_KEY=$2
+
+function echo_help {
+    echo "Usage:"
+    echo "  overline_gpu_miner <command> <MINER_KEY>"
+    echo ""
+    echo "Commands:"
+    echo "  start                Start the miner"
+    echo "  build_image          Build a new docker image"
+    echo "  miner_key            Print miner key"
+    echo "  status               Status of the miner"
+    echo "  reload               Reload snapshot and start to mine"
+    echo "  stop                 Stop the miner"
+    echo "  start_proxy          Start proxy server"
+    echo "  test_hasher          Test if a GPU hasher process can start"
+    echo "  docker_image_digest  Output bcnode docker image digest"
+}
+
+if [ -z "$BC_MINER_KEY" ]; then
+   if [ -f "$BC_MINER_KEY_LOCATION" ]; then
+        BC_MINER_KEY=$(cat $BC_MINER_KEY_LOCATION)
+   fi
+else
+   echo $BC_MINER_KEY > $BC_MINER_KEY_LOCATION
+fi
+
+if [ -z "$BC_MINER_KEY" ]; then
+   if [ "$action" != "stop" ] && [ "$action" != "status" ] && [ "$action" != "build_image" ] && [ "$action" != "start_proxy" ] && [ "$action" != "test_hasher" ]; then
+     echo "BC_MINER_KEY is required"
+     echo_help
+     exit 1
+   fi
+fi
+
+LOCKFILE="$BOOTSTRAP_DIR/$action.lock"
+STARTING_LOCKFILE="$BOOTSTRAP_DIR/start.lock"
+RELOAD_LOCKFILE="$BOOTSTRAP_DIR/reload.lock"
+TEST_HASHER_LOCKFILE="$BOOTSTRAP_DIR/test_hasher.lock"
+
+# has to run under root
+
+function ensure_disk_size {
+    min_disk_size=157286400 # 150GB
+    disk_size=$(df | grep /$ | awk '{ print $2 }')
+    if [ "$disk_size" -lt "$min_disk_size" ]; then
+        echo "Insufficient Disk Size. Requires at least 60GB"
+        exit 1
+    fi
+}
+
+
+function install_nvdia_docker_toolkit {
+    if [[ $(which nvidia-container-toolkit) ]]; then
+        echo "nvidia-container-toolkit is already installed"
+    else
+        distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+        curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | apt-key add -
+        curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | tee /etc/apt/sources.list.d/nvidia-docker.list
+
+        apt-get update && apt-get install -y nvidia-container-toolkit
+    fi
+}
+
+function ensure_os_version {
+    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+
+    if [ $distribution != "debian10" ]; then
+        echo "OS has to be Debian GNU/Linux 10 (buster)"
+        exit 1
+    fi
+}
+
+
+function test_run_nvidia_cuda {
+    docker run --rm --gpus all nvidia/cuda:10.0-base nvidia-smi
+}
+
+function clone_gpu_docker_repo {
+    if [ ! -d "$BOOTSTRAP_DIR/bcnode-gpu-docker" ]; then
+        cd $BOOTSTRAP_DIR
+        git clone --depth 1 https://github.com/trick77/bcnode-gpu-docker bcnode-gpu-docker
+    fi
+}
+
+
+function load_new_snapshot() {
+    cd ${UBUNTU1804_DIR}
+    if [[ -f "$DB_SNAPSHOT_LOCATTION" ]]; then
+        echo_with_time "${DB_SNAPSHOT_LOCATTION} was already downloaded. Reusing it..."
+    else
+        echo "Downloading new snapshot. It may take 45 minutes to 2 hours depending on connection speed" # dont change the echo words, it is used in proxy.py
+        time wget ${DB_SNAPSHOT_URI} -O ${DB_SNAPSHOT_LOCATTION} -o ${DB_SNAPSHOT_DOWNLOAD_PROGRESS}
+        set +e
+        rm ${DB_SNAPSHOT_DOWNLOAD_PROGRESS}
+        set -e
+    fi
+    if [[ -f "$DB_IMPORTED_FLAG" ]]; then
+        echo_with_time "${DB_SNAPSHOT_LOCATTION} was already imported. Skipping ..."
+    else
+        echo_with_time "{GREEN} Loading the snapshot. It may take around 30 minutes "
+        time echo "yy" | ./import-db.sh ${DB_SNAPSHOT_LOCATTION}
+        touch $DB_IMPORTED_FLAG
+    fi
+}
+
+function stop_miner() {
+    set +e
+    if [[ -f "$BCNODE_GPU_MINER_PID" ]]; then
+        echo_with_time "Killing bcnode_gpu_miner with pid: $pid..."
+        pid=`cat $BCNODE_GPU_MINER_PID`
+        kill -15 $pid &> /dev/null || true
+        rm $BCNODE_GPU_MINER_PID || true
+    fi
+    echo_with_time "Killing containers if running, cleaning up..."
+    docker rm -f ${BCNODE_CONTAINER_NAME} || true
+    set -e
+}
+
+function start_to_mine {
+    stop_miner
+
+    cd ${UBUNTU1804_DIR}/bcnode_gpu_docker/
+
+    export CUDA_HOME=/usr/local/cuda
+    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64
+    export PATH=${PATH}:${CUDA_HOME}/bin
+
+
+    # populate docker env file
+    cp ./config $DOCKER_ENV_FILE
+
+    sed -i "s/BC_MINER_KEY=.*/BC_MINER_KEY=$BC_MINER_KEY/g" $DOCKER_ENV_FILE
+
+    if [[ -f "$CUSTOMIZED_CONFIG" ]]; then
+        echo_with_time "Loading CUSTOMIZED_CONFIG: ${CUSTOMIZED_CONFIG}"
+        cat ${CUSTOMIZED_CONFIG} >> $DOCKER_ENV_FILE
+    fi
+
+    . ${DOCKER_ENV_FILE}
+
+    nohup ${UBUNTU1804_DIR}/releases/bcnode_gpu_miner &> ${BCNODE_GPU_MINER_OUT} &
+    echo $! > ${BCNODE_GPU_MINER_PID}
+    sleep 2
+    tail -n 10 ${BCNODE_GPU_MINER_OUT}
+
+
+    echo_with_time "Starting bcnode container with miner key ${MINER_KEY}..."
+    docker run -d --restart=unless-stopped --name ${BCNODE_CONTAINER_NAME} \
+           --memory-reservation="6900m" \
+           --env-file ${DOCKER_ENV_FILE} \
+           --network host \
+           --mount source=db,target=/bc/_data \
+           ${BCNODE_IMAGE} \
+           start --rovers --rpc --ws --ui --node --scookie "${BC_SCOOKIE}" 2>&1
+
+    echo_with_time "Done."
+    if [[ ${BC_TUNNEL_HTTPS:-false} == true ]]; then
+      echo_with_time "Waiting for ngrok tunnel to be up..."
+      sleep 5 # a loop would be more suitable here
+      echo_with_time "Your personal HTTPS ngrok address is:"
+      curl -s --basic --user ":${BC_SCOOKIE}" -H "content-type: application/json" -H 'accept: application/json' -d '{ "jsonrpc": "2.0", "id": 123, "method": "getSettings", "params": [] }' http://localhost:3000/rpc | jq  --raw-output '.result.ngrokTunnel'
+    fi
+
+}
+
+################################################### Actions ##################################################################
+
+if [ "$action" == "start" ]; then
+    if [[ -f "$LOCKFILE" ]]; then
+        echo_with_time "Another bootstrap is running. ignore this run"
+        exit 0
+    fi
+    if [[ -f "$RELOAD_LOCKFILE" ]]; then
+        echo_with_time "Another reload is running. ignore this run"
+        exit 0
+    fi
+    echo_with_time "Creating lockfile: $LOCKFILE"
+    touch $LOCKFILE
+    trap '{ rm -f -- "$LOCKFILE"; }' EXIT
+
+    echo_with_time "Checking system requirement"
+
+    stop_miner
+
+    ensure_disk_size
+
+    echo_with_time "Starting"
+
+    install_cuda
+    install_docker
+    clone_gpu_miner_repo
+
+    build_docker_images true
+    load_new_snapshot
+    start_to_mine
+elif [ "$action" == "reload" ]; then
+    if [[ -f "$LOCKFILE" ]]; then
+        echo_with_time "Another reload is running. ignore this run"
+        exit 0
+    fi
+    if [[ -f "$STARTING_LOCKFILE" ]]; then
+        echo_with_time "Another bootstrap is running. ignore this run"
+        exit 0
+    fi
+
+    echo_with_time "Creating lockfile: $LOCKFILE"
+    touch $LOCKFILE
+    trap '{ rm -f -- "$LOCKFILE"; }' EXIT
+
+    ensure_docker_daemon_running
+
+    stop_miner
+
+    rm ${DB_SNAPSHOT_LOCATTION} || true
+    rm ${DB_IMPORTED_FLAG} || true
+
+    clone_gpu_miner_repo
+    build_docker_images true
+    load_new_snapshot
+
+    start_to_mine
+elif [ "$action" == "build_image" ]; then
+    if [[ -f "$LOCKFILE" ]]; then
+        echo_with_time "Another reload is running. ignore this run"
+        exit 0
+    fi
+    if [[ -f "$STARTING_LOCKFILE" ]]; then
+        echo_with_time "Another bootstrap is running. ignore this run"
+        exit 0
+    fi
+
+    echo_with_time "Creating lockfile: $LOCKFILE"
+    touch $LOCKFILE
+    trap '{ rm -f -- "$LOCKFILE"; }' EXIT
+
+    ensure_docker_daemon_running
+
+    stop_miner
+
+    build_docker_images true
+elif [ "$action" == "status" ]; then
+    if [[ -f "$STARTING_LOCKFILE" ]]; then
+        set +e
+        processes=$(ps aux | grep 'overline_gpu_miner start' | grep -v grep | grep start)
+        if [ ! "$processes" ]; then
+            rm "$STARTING_LOCKFILE"
+            echo "not_running"
+        else
+            echo "bootstraping"
+        fi
+    elif [[ -f "$RELOAD_LOCKFILE" ]]; then
+        set +e
+        processes=$(ps aux | grep 'overline_gpu_miner reload' | grep -v grep | grep reload)
+        if [ ! "$processes" ]; then
+            rm "$RELOAD_LOCKFILE"
+            echo "not_running"
+        else
+            echo "reloading"
+        fi
+    elif [[ -f "$TEST_HASHER_LOCKFILE" ]]; then
+        set +e
+        processes=$(ps aux | grep 'overline_gpu_miner test_hasher' | grep -v grep)
+        if [ ! "$processes" ]; then
+            rm "$TEST_HASHER_LOCKFILE"
+            echo "not_running"
+        else
+            echo "testing_hasher"
+        fi
+    elif [[ $(which docker) && $(docker --version) ]]; then
+        if [[ $(docker ps | grep bcnode) ]]; then
+            echo "running"
+        else
+            echo "not_running"
+        fi
+    else
+        echo "not_running"
+    fi
+elif [ "$action" == "miner_key" ]; then
+    cat $BC_MINER_KEY_LOCATION
+elif [ "$action" == "test_hasher" ]; then
+    if [[ -f "$LOCKFILE" ]]; then
+        echo_with_time "Another test_hasher is running. ignore this run"
+        exit 1
+    fi
+    echo_with_time "Creating lockfile: $LOCKFILE"
+    touch $LOCKFILE
+    trap '{ rm -f -- "$LOCKFILE"; }' EXIT
+
+    install_cuda
+    target_file="/tmp/test_bcnode_gpu_miner"
+    test_gpu_log="${target_file}.log"
+    test_gpu_pid="${target_file}.pid"
+
+    if [ ! -f "$target_file" ]; then
+        wget -q https://github.com/goblueping/gpu-miner/raw/main/windows10/ubuntu1804/releases/bcnode_gpu_miner -O $target_file && chmod +x $target_file
+    fi
+
+    ${target_file} &> ${test_gpu_log} &
+    echo $! > ${test_gpu_pid}
+    sleep 2
+    pid=`cat $test_gpu_pid`
+    kill -15 $pid &> /dev/null || true
+
+    # now check log
+    if grep -q 'Server listening on' $test_gpu_log ; then
+        echo "succeeded"
+        exit 0
+    else
+        echo "failed"
+        exit 1
+    fi
+elif [ "$action" == "docker_image_digest" ]; then
+    get_local_bcnode_docker_image_digest
+elif [ "$action" == "start_proxy" ]; then
+    wget https://raw.githubusercontent.com/goblueping/gpu-miner/main/windows10/ubuntu1804/proxy.py -O /usr/local/bin/overline_gpu_miner_proxy && chmod +x /usr/local/bin/overline_gpu_miner_proxy
+    if [[ -f "$BCNODE_GPU_MINER_PROXY_PID" ]]; then
+        pid=`cat $BCNODE_GPU_MINER_PROXY_PID`
+        kill -15 $pid &> /dev/null || true
+        rm $BCNODE_GPU_MINER_PROXY_PID || true
+    fi
+    nohup /usr/local/bin/overline_gpu_miner_proxy &> /dev/null &
+    echo $! > ${BCNODE_GPU_MINER_PROXY_PID}
+    sleep 2 # ensure it is up and running
+    curl localhost:31234?command=my_ip
+elif [ "$action" == "stop" ]; then
+    stop_miner
+else
+    echo_help
+fi
+
