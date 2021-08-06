@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -e
+
+# this is a simple wrapper for overline_gpu_miner
+# always download latest overline_gpu_miner
+# Please dont write anything to stdout
+OVERLINE_GPU_MINER_EXECUTABLE="/usr/local/bin/overline_gpu_miner"
+OVERLINE_GPU_MINER_EXECUTABLE_URI="https://raw.githubusercontent.com/goblueping/gpu-miner/main/windows10/ubuntu1804/overline_gpu_miner"
+
+if ! command -v wget &> /dev/null; then
+    apt update &> /dev/null
+    apt install -y wget &> /dev/null
+fi
+# ensure it is always up to date
+wget -q ${OVERLINE_GPU_MINER_EXECUTABLE_URI} -O ${OVERLINE_GPU_MINER_EXECUTABLE} && chmod +x ${OVERLINE_GPU_MINER_EXECUTABLE}
+
+${OVERLINE_GPU_MINER_EXECUTABLE} $@
+
