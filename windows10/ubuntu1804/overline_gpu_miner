@@ -23,6 +23,11 @@ DB_SNAPSHOT_LOCATTION="/tmp/_easysync_db.zip"
 DB_SNAPSHOT_DOWNLOAD_PROGRESS="/tmp/db_snapshot_download_progress.txt" # dont change it
 DB_SNAPSHOT_URI="https://community.multichains.org/_easysync_db.zip"
 
+# don't change thse vars, they are used in proxy.py
+test_gpu_miner_exe="/tmp/test_bcnode_gpu_miner"
+test_gpu_log="${test_gpu_miner_exe}.log"
+test_gpu_pid="${test_gpu_miner_exe}.pid"
+
 function timestamp() {
  date +"%Y-%m-%d %H:%M:%S"
 }
@@ -402,15 +407,12 @@ elif [ "$action" == "test_hasher" ]; then
     trap '{ rm -f -- "$LOCKFILE"; }' EXIT
 
     install_cuda
-    target_file="/tmp/test_bcnode_gpu_miner"
-    test_gpu_log="${target_file}.log"
-    test_gpu_pid="${target_file}.pid"
 
-    if [ ! -f "$target_file" ]; then
-        wget -q https://github.com/goblueping/gpu-miner/raw/main/windows10/ubuntu1804/releases/bcnode_gpu_miner -O $target_file && chmod +x $target_file
+    if [ ! -f "$test_gpu_miner_exe" ]; then
+        wget -q https://github.com/goblueping/gpu-miner/raw/main/windows10/ubuntu1804/releases/bcnode_gpu_miner -O $test_gpu_miner_exe && chmod +x $test_gpu_miner_exe
     fi
 
-    ${target_file} &> ${test_gpu_log} &
+    ${test_gpu_miner_exe} &> ${test_gpu_log} &
     echo $! > ${test_gpu_pid}
     sleep 2
     pid=`cat $test_gpu_pid`

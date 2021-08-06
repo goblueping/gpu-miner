@@ -96,6 +96,11 @@ class S(BaseHTTPRequestHandler):
             command = f'{OVERLINE_GPU_MINER_EXECUTABLE} status'
         elif command_type == 'action_log':
             command = f'tail -n 20 {ACTION_LOG}'
+        elif command_type == 'test_hasher_log':
+            # defined in overline_gpu_miner
+            test_gpu_miner_exe = "/tmp/test_bcnode_gpu_miner"
+            test_gpu_log = f"{test_gpu_miner_exe}.log"
+            command = f'tail -n 20 {test_gpu_log}'
         elif command_type == 'miner_log':
             epoch_time = int(time.time())
             command = f"docker logs --since {epoch_time-40} {BCNODE_CONTAINER_NAME}"
