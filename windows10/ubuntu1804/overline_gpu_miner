@@ -54,7 +54,7 @@ function install_docker {
         ensure_docker_daemon_running
     else
         echo_with_time "Installing docker ..."
-        curl https://get.docker.com | sh
+        apt-get install -y --no-install-recommends docker-ce-cli docker-scan-plugin docker-ce
         echo_with_time "Starting docker ..."
         service docker start
         sleep 3 # this ensure the docker is up
