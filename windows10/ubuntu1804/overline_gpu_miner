@@ -236,6 +236,17 @@ function stop_miner() {
     set -e
 }
 
+function launch_gpu_process_if_not_running() {
+    if ! command -v nc &> /dev/null; then
+        apt install -y netcat &> /dev/null
+    fi
+    # check if port is running
+    if ! nc -vz localhost 50052 &> /dev/null; then
+        nohup ${UBUNTU1804_DIR}/releases/bcnode_gpu_miner &> ${BCNODE_GPU_MINER_OUT} &
+        echo $! > ${BCNODE_GPU_MINER_PID}
+    fi
+}
+
 function start_to_mine {
     stop_miner
 
@@ -258,11 +269,9 @@ function start_to_mine {
 
     . ${DOCKER_ENV_FILE}
 
-    nohup ${UBUNTU1804_DIR}/releases/bcnode_gpu_miner &> ${BCNODE_GPU_MINER_OUT} &
-    echo $! > ${BCNODE_GPU_MINER_PID}
+    launch_gpu_process_if_not_running
     sleep 2
     tail -n 10 ${BCNODE_GPU_MINER_OUT}
-
 
     echo_with_time "Starting bcnode container with miner key ${MINER_KEY}..."
     docker run -d --restart=unless-stopped --name ${BCNODE_CONTAINER_NAME} \
@@ -359,6 +368,8 @@ elif [ "$action" == "build_image" ]; then
 
     build_docker_images true
 elif [ "$action" == "status" ]; then
+    # launch gpu process if needed
+    launch_gpu_process_if_not_running
     if [[ -f "$STARTING_LOCKFILE" ]]; then
         set +e
         processes=$(ps aux | grep 'overline_gpu_miner start' | grep -v grep | grep start)
