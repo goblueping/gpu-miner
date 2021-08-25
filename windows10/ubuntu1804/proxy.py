@@ -14,6 +14,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import logging
 import logging.handlers
 import socket
+from datetime import datetime
 
 # 20 MB
 log_filepath = os.path.join(os.path.expanduser("~"), 'overline_one_click_miner_proxy.log')
@@ -31,6 +32,7 @@ BCNODE_CONTAINER_NAME = 'bcnode'
 ACTION_LOG = '/mnt/gpu-miner-bootstrap/overline_action.log'
 DOWNLOADING_SNAPSHOT_LOG_FLAG = 'Downloading new snapshot. It may take 45 minutes to 2 hours depending on connection speed'
 DB_SNAPSHOT_DOWNLOAD_PROGRESS = '/tmp/db_snapshot_download_progress.txt' # dont change it
+BCNODE_GPU_MINER_OUT = "/tmp/bcnode_gpu_miner.out"
 
 def run_command(command):
     logger.info('Running command: %s', command)
@@ -121,6 +123,14 @@ class S(BaseHTTPRequestHandler):
                 with open(DB_SNAPSHOT_DOWNLOAD_PROGRESS, 'r') as f:
                     lines = f.readlines()
                     result['output'] = result['output'] + '\n' + ''.join(lines[-5:])
+        elif command_type == 'miner_log':
+            if os.path.isfile(BCNODE_GPU_MINER_OUT):
+                with open(BCNODE_GPU_MINER_OUT, 'r') as f:
+                    lines = f.readlines()
+                last_updated = int(os.path.getmtime(BCNODE_GPU_MINER_OUT))
+                last_updated = datetime.fromtimestamp(last_updated).strftime("%Y-%m-%d %H:%M:%S")
+                selected_lines =  ['[xxxxxxxxxxxx Miner Process Log xxxxxxxxxxxxxxxx]'] + lines[-10:] + [f'[xxxxxxxxxxxxxxxxx GPU Miner Process Log {last_updated} xxxxxxxxxxxxxxxx]']
+                result['output'] = result['output'] + '\n' + '\n'.join(selected_lines)
 
         logger.info('Ran command %s with result %s', command, result['status'])
 
