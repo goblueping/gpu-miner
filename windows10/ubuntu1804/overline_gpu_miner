@@ -133,6 +133,7 @@ function echo_help {
     echo "  stop                 Stop the miner"
     echo "  start_proxy          Start proxy server"
     echo "  test_hasher          Test if a GPU hasher process can start"
+    echo "  gpu_device           Check if gpu_device /dev/dxg is present"
     echo "  docker_image_digest  Output bcnode docker image digest"
 }
 
@@ -145,11 +146,12 @@ else
 fi
 
 if [ -z "$BC_MINER_KEY" ]; then
-   if [ "$action" != "stop" ] && [ "$action" != "status" ] && [ "$action" != "build_image" ] && [ "$action" != "start_proxy" ] && [ "$action" != "test_hasher" ]; then
+   if [ "$action" == "start" ] || [ "$action" == "reload" ]; then
      echo "BC_MINER_KEY is required"
      echo_help
      exit 1
    fi
+
 fi
 
 LOCKFILE="$BOOTSTRAP_DIR/$action.lock"
@@ -408,6 +410,14 @@ elif [ "$action" == "status" ]; then
     fi
 elif [ "$action" == "miner_key" ]; then
     cat $BC_MINER_KEY_LOCATION
+elif [ "$action" == "gpu_device" ]; then
+    if [ ! -c "/dev/dxg" ]; then
+        echo "GPU device: /dev/dxg is NOT present in the WSL"
+        exit 1
+    else
+        echo "GPU device: /dev/dxg is present in the WSL"
+        exit 0
+    fi
 elif [ "$action" == "test_hasher" ]; then
     if [[ -f "$LOCKFILE" ]]; then
         echo_with_time "Another test_hasher is running. ignore this run"
