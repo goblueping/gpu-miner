@@ -208,6 +208,13 @@ function clone_gpu_docker_repo {
 function load_new_snapshot() {
     cd ${UBUNTU1804_DIR}
     if [[ -f "$DB_SNAPSHOT_LOCATTION" ]]; then
+        filesize=$(stat -c%s "$DB_SNAPSHOT_LOCATTION")
+        if (( filesize < 1000 )); then
+            echo "Broken $DB_SNAPSHOT_LOCATTION with file size: $filesize . Redownloading..."
+            rm $DB_SNAPSHOT_LOCATTION
+        fi
+    fi
+    if [[ -f "$DB_SNAPSHOT_LOCATTION" ]]; then
         echo_with_time "${DB_SNAPSHOT_LOCATTION} was already downloaded. Reusing it..."
     else
         echo "Downloading new snapshot. It may take 45 minutes to 2 hours depending on connection speed" # dont change the echo words, it is used in proxy.py
