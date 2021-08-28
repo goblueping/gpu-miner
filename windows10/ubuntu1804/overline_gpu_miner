@@ -412,9 +412,11 @@ elif [ "$action" == "miner_key" ]; then
     cat $BC_MINER_KEY_LOCATION
 elif [ "$action" == "gpu_device" ]; then
     if [ ! -c "/dev/dxg" ]; then
+        # DON'T change the output string and status code
         echo "GPU device: /dev/dxg is NOT present in the WSL"
         exit 1
     else
+        # DON'T change the output string and status code
         echo "GPU device: /dev/dxg is present in the WSL"
         exit 0
     fi
