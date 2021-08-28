@@ -52,9 +52,6 @@ else
   docker volume rm ${database_volume_name}
 fi
 
-echo -e "Starting dummy container to access ${database_volume_name} volume..."
-docker run -d --rm --name importdb -v ${database_volume_name}:/root alpine tail -f /dev/null
-
 tmp_dir=`mktemp -d`
 echo -e "Extracting database $1 to ${tmp_dir}"
 if [ ${1: -3} == ".gz" ]; then
@@ -69,6 +66,9 @@ rm ${tmp_dir}/_data/.chainstate.db > /dev/null 2>&1 || true
 
 echo -e "Latest database timestamp:"
 ls -Artls ${tmp_dir}/_data/db/*.sst | tail -n 1
+
+echo -e "Starting dummy container to access ${database_volume_name} volume..."
+docker run -d --rm --name importdb -v ${database_volume_name}:/root alpine tail -f /dev/null
 
 echo -e "Copying database to volume..."
 docker cp ${tmp_dir}/_data/* importdb:/root
