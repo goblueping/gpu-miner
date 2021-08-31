@@ -78,7 +78,11 @@ function clone_gpu_miner_repo {
 }
 
 function get_local_bcnode_docker_image_digest() {
-    docker images  --format "{{.Tag}} {{.Digest}}" ${BCNODE_IMAGE_NAME} | grep ${BCNODE_IMAGE_TAG} | cut -d' ' -f2
+    if [[ $(which docker) && $(docker --version) ]]; then
+        docker images  --format "{{.Tag}} {{.Digest}}" ${BCNODE_IMAGE_NAME} | grep ${BCNODE_IMAGE_TAG} | cut -d' ' -f2
+    else
+        echo "n/a"
+    fi
 }
 
 function build_docker_images {
