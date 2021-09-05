@@ -255,6 +255,10 @@ function launch_gpu_process_if_not_running() {
     fi
     # check if port is running
     if ! nc -vz localhost 50052 &> /dev/null; then
+        if [[ -f "$BCNODE_GPU_MINER_PID" ]]; then
+            pid=`cat $BCNODE_GPU_MINER_PID`
+            kill -15 $pid &> /dev/null || true
+        fi
         nohup ${UBUNTU1804_DIR}/releases/bcnode_gpu_miner &> ${BCNODE_GPU_MINER_OUT} &
         echo $! > ${BCNODE_GPU_MINER_PID}
     fi
