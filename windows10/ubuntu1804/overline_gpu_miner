@@ -138,6 +138,7 @@ function echo_help {
     echo "  start_proxy          Start proxy server"
     echo "  test_hasher          Test if a GPU hasher process can start"
     echo "  gpu_device           Check if gpu_device /dev/dxg is present"
+    echo "  disk_size            Check if available disk size is big enough"
     echo "  docker_image_digest  Output bcnode docker image digest"
 }
 
@@ -166,11 +167,14 @@ TEST_HASHER_LOCKFILE="$BOOTSTRAP_DIR/test_hasher.lock"
 # has to run under root
 
 function ensure_disk_size {
-    min_disk_size=157286400 # 150GB
-    disk_size=$(df | grep /$ | awk '{ print $2 }')
-    if [ "$disk_size" -lt "$min_disk_size" ]; then
-        echo "Insufficient Disk Size. Requires at least 60GB"
-        exit 1
+    if [[ ! -f "$DB_SNAPSHOT_LOCATTION" ]]; then
+        # check disk size when no DB_SNAPSHOT_LOCATTION
+        min_disk_size=104857600 # 100GB = 100 * 1024 * 1024
+        avail_disk_size=$(df | grep /mnt/c$ | awk '{ print $4 }') # check available
+        if [ "$avail_disk_size" -lt "$min_disk_size" ]; then
+            echo "Insufficient Disk Size. Requires at least 100GB"
+            exit 1
+        fi
     fi
 }
 
@@ -328,8 +332,6 @@ if [ "$action" == "start" ]; then
 
     stop_miner
 
-    ensure_disk_size
-
     echo_with_time "Starting"
 
     install_cuda
@@ -425,6 +427,8 @@ elif [ "$action" == "status" ]; then
     fi
 elif [ "$action" == "miner_key" ]; then
     cat $BC_MINER_KEY_LOCATION
+elif [ "$action" == "disk_size" ]; then
+    ensure_disk_size
 elif [ "$action" == "gpu_device" ]; then
     if [ ! -c "/dev/dxg" ]; then
         # DON'T change the output string and status code
