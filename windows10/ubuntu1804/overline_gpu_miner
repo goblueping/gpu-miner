@@ -263,7 +263,7 @@ function launch_gpu_process_if_not_running() {
             pid=`cat $BCNODE_GPU_MINER_PID`
             kill -15 $pid &> /dev/null || true
         fi
-        nohup ${UBUNTU1804_DIR}/releases/bcnode_gpu_miner &> ${BCNODE_GPU_MINER_OUT} &
+        nohup -c "while true; do timeout -s 9 30m ${UBUNTU1804_DIR}/releases/bcnode_gpu_miner; done" &> ${BCNODE_GPU_MINER_OUT} &
         echo $! > ${BCNODE_GPU_MINER_PID}
     fi
 }
@@ -486,4 +486,3 @@ elif [ "$action" == "stop" ]; then
 else
     echo_help
 fi
-
