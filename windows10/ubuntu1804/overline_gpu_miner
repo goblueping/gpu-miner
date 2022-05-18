@@ -111,7 +111,7 @@ function install_cuda {
     if [ -z "$(dpkg --list | grep cuda-toolkit-11-0)" ]; then
         echo_with_time "Installing cuda-toolkit-11-0 ..."
         apt-get update && apt-get install -y gnupg
-        apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub
+        apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/3bf863cc.pub
         sh -c 'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
         apt-get update
         echo_with_time "Installing cuda-toolkit ..."
